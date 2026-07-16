@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { WorkersModule } from './modules/workers/workers.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { WorkersModule } from './modules/workers/workers.module';
     DatabaseModule,
     CompaniesModule,
     WorkersModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
