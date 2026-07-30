@@ -12,4 +12,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  optimizeDeps: {
+    // @job-program/shared는 워크스페이스 심볼릭 링크 패키지라 기본적으로는
+    // esbuild 사전 번들링에서 제외되는데, dist 산출물이 CommonJS라
+    // 브라우저가 named export(enum 등)를 인식하지 못한다. 강제로 포함시켜
+    // ESM으로 변환되도록 한다.
+    include: ['@job-program/shared'],
+  },
 });

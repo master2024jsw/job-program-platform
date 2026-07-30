@@ -1,5 +1,8 @@
+import { Transform } from 'class-transformer';
 import { IsDateString, IsEmail, IsEnum, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 import { ContractType, Gender, WorkerStatus } from '@job-program/shared';
+
+const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export class UpdateWorkerDto {
   @IsOptional()
@@ -20,6 +23,7 @@ export class UpdateWorkerDto {
   phone?: string;
 
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsEmail()
   email?: string;
 

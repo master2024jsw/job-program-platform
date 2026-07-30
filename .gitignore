@@ -15,6 +15,10 @@ apps/server/data/*.sqlite
 apps/server/data/*.sqlite3
 apps/server/data/*.db
 
+# uploaded documents
+apps/server/data/uploads/*
+!apps/server/data/uploads/.gitkeep
+
 # logs
 *.log
 npm-debug.log*

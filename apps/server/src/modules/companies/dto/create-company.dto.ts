@@ -1,5 +1,8 @@
+import { Transform } from 'class-transformer';
 import { IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { CompanyStatus } from '@job-program/shared';
+
+const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export class CreateCompanyDto {
   @IsString()
@@ -35,6 +38,7 @@ export class CreateCompanyDto {
   contactManagerPhone?: string;
 
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsEmail()
   contactManagerEmail?: string;
 

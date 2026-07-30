@@ -30,5 +30,8 @@
   },
   "overrides": {
     "node-gyp": "^13.0.1"
+  },
+  "allowScripts": {
+    "winax@3.6.9": true
   }
 }
