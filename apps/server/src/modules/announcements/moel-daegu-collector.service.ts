@@ -52,6 +52,7 @@ export class MoelDaeguCollectorService {
         sourceUrl,
         publishedDate: this.toIsoDate(row.date),
         category: keyword,
+        source: 'crawl',
       });
       await this.announcementsRepository.save(announcement);
       summary.created++;

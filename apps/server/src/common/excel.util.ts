@@ -24,7 +24,8 @@ function cellToText(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === 'object') {
-    const obj = value as { text?: unknown; result?: unknown; hyperlink?: unknown };
+    const obj = value as { text?: unknown; result?: unknown; hyperlink?: unknown; richText?: Array<{ text: unknown }> };
+    if (Array.isArray(obj.richText)) return obj.richText.map((t) => String(t.text ?? '')).join('').trim();
     if (obj.text !== undefined) return String(obj.text).trim();
     if (obj.result !== undefined) return String(obj.result).trim();
     if (obj.hyperlink !== undefined) return String(obj.hyperlink).trim();
@@ -32,14 +33,21 @@ function cellToText(value: unknown): string {
   return String(value).trim();
 }
 
-/** 엑셀 첫 행을 헤더로 읽고, headerToKey 매핑에 있는 컬럼만 { key: value } 형태로 뽑아낸다. */
+/**
+ * 엑셀 첫 행을 헤더로 읽고, headerToKey 매핑에 있는 컬럼만 { key: value } 형태로 뽑아낸다.
+ * sheetSelector로 시트 이름 또는 인덱스를 지정할 수 있다 (기본값: 첫 번째 시트).
+ */
 export async function readExcelRows(
   buffer: Buffer,
   headerToKey: Record<string, string>,
+  sheetSelector?: string | number,
 ): Promise<Array<Record<string, string>>> {
   const workbook = new Workbook();
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
-  const sheet = workbook.worksheets[0];
+  const sheet =
+    typeof sheetSelector === 'string'
+      ? workbook.getWorksheet(sheetSelector)
+      : workbook.worksheets[sheetSelector ?? 0];
   if (!sheet) return [];
 
   const columnIndexToKey = new Map<number, string>();

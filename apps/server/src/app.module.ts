@@ -10,11 +10,15 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { MailCollectorModule } from './modules/mail-collector/mail-collector.module';
 import { SubsidyModule } from './modules/subsidy/subsidy.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { BusinessesModule } from './modules/businesses/businesses.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
+    AuthModule,
+    BusinessesModule,
     CompaniesModule,
     WorkersModule,
     MailModule,

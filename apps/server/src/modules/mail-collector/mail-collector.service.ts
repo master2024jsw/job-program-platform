@@ -109,7 +109,7 @@ export class MailCollectorService {
 
   private async resolveSender(email: string): Promise<{ companyId?: string; workerId?: string }> {
     if (!email) return {};
-    const company = await this.companiesRepository.findOne({ where: { contactManagerEmail: email } });
+    const company = await this.companiesRepository.findOne({ where: { email } });
     if (company) return { companyId: company.id };
     const worker = await this.workersRepository.findOne({ where: { email } });
     if (worker) return { workerId: worker.id };

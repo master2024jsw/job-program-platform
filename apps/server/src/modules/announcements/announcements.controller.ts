@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import type { ApiResponse } from '@job-program/shared';
-import { AnnouncementsService } from './announcements.service';
+import { AnnouncementsService, type AnnouncementListFilters, type AnnouncementStatus, type JobAnnouncementRow } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
 import { JobAnnouncement } from './announcement.entity';
@@ -26,9 +26,21 @@ export class AnnouncementsController {
   }
 
   @Get()
-  async findAll(): Promise<ApiResponse<JobAnnouncement[]>> {
-    const announcements = await this.announcementsService.findAll();
-    return { success: true, data: announcements };
+  async findAll(
+    @Query('status') status?: AnnouncementStatus,
+    @Query('sortBy') sortBy?: AnnouncementListFilters['sortBy'],
+    @Query('sortOrder') sortOrder?: AnnouncementListFilters['sortOrder'],
+    @Query('keyword') keyword?: string,
+    @Query('bookmarkedOnly') bookmarkedOnly?: string,
+  ): Promise<ApiResponse<JobAnnouncementRow[]>> {
+    const data = await this.announcementsService.findAll({
+      status,
+      sortBy,
+      sortOrder,
+      keyword,
+      bookmarkedOnly: bookmarkedOnly === 'true',
+    });
+    return { success: true, data };
   }
 
   @Patch(':id')

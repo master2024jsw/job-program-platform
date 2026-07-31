@@ -138,9 +138,9 @@ function SendMailPanel({
             <select className="select-input" value={companyId} onChange={(e) => setCompanyId(e.target.value)} required>
               <option value="">선택하세요</option>
               {companies.map((c) => (
-                <option key={c.id} value={c.id} disabled={!c.contactManagerEmail}>
+                <option key={c.id} value={c.id} disabled={!c.email}>
                   {c.name}
-                  {c.contactManagerEmail ? '' : ' (담당자 이메일 없음)'}
+                  {c.email ? '' : ' (이메일 없음)'}
                 </option>
               ))}
             </select>

@@ -59,10 +59,10 @@ export class MailService {
 
     if (dto.companyId) {
       const company = await this.companiesRepository.findOne({ where: { id: dto.companyId } });
-      if (!company?.contactManagerEmail) {
-        throw new BadRequestException('해당 기업에 등록된 담당자 이메일이 없습니다.');
+      if (!company?.email) {
+        throw new BadRequestException('해당 기업에 등록된 이메일이 없습니다.');
       }
-      recipients.add(company.contactManagerEmail);
+      recipients.add(company.email);
     }
 
     if (dto.workerId) {

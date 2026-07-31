@@ -9,13 +9,27 @@ export class CreateCompanyDto {
   @MaxLength(200)
   name!: string;
 
-  @IsString()
-  @Matches(/^\d{10}$/, { message: '사업자등록번호는 하이픈 없는 숫자 10자리여야 합니다.' })
-  businessRegistrationNumber!: string;
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @Matches(/^\d{3}-?\d{2}-?\d{5}$/, { message: '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)' })
+  businessRegistrationNumber?: string;
 
   @IsOptional()
   @IsString()
   representativeName?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  fax?: string;
 
   @IsOptional()
   @IsString()
@@ -24,23 +38,6 @@ export class CreateCompanyDto {
   @IsOptional()
   @IsString()
   address?: string;
-
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @IsOptional()
-  @IsString()
-  contactManagerName?: string;
-
-  @IsOptional()
-  @IsString()
-  contactManagerPhone?: string;
-
-  @IsOptional()
-  @Transform(emptyToUndefined)
-  @IsEmail()
-  contactManagerEmail?: string;
 
   @IsOptional()
   @IsEnum(CompanyStatus)

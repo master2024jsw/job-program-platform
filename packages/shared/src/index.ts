@@ -4,4 +4,6 @@ export * from './types/worker';
 export * from './types/mail';
 export * from './types/document';
 export * from './types/announcement';
+export * from './types/auth';
+export * from './types/business';
 export * from './constants/app';

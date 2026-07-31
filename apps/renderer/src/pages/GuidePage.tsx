@@ -1,58 +1,49 @@
-interface FlowStep {
-  title: string;
-  description: string;
-  future?: boolean;
-}
+import { downloadFile } from '../api/client';
+import {
+  FLOW_STEPS,
+  GETTING_STARTED_STEPS,
+  INTRO_TEXT,
+  SECURITY_TEXT,
+  SERVER_MODE_TEXT,
+  TAB_GUIDES,
+} from '../content/guide-content';
 
-const flowSteps: FlowStep[] = [
-  { title: '① 신사업 알리미', description: '새로 나온 사업 공고를 등록하고 확인 여부를 관리합니다.' },
-  { title: '② 기업 관리', description: '사업에 참여할 기업을 등록하고 담당자 정보를 관리합니다.' },
-  { title: '③ 근로자 관리', description: '기업에 채용된 근로자(참여자) 정보를 등록합니다.' },
-  { title: '④ 메일 관리', description: '기업·근로자에게 안내 메일을 템플릿으로 발송하고 이력을 확인합니다.' },
-  { title: '⑤ 문서함', description: '제출 서류를 업로드하면 AI가 항목을 추출하고 미비사항을 알려줍니다.' },
-  { title: '⑥ 지원금 안내', description: '신청 가능일을 자동 계산해 안내하고, 근로일수 기준으로 지원금을 산정합니다.' },
-  { title: '⑦ 평가 대응', description: '운영기관 평가 대응 자료 자동 생성 기능이 추가될 예정입니다.', future: true },
-  { title: '⑧ 민원응대', description: '민원 응대·업무 인수인계를 돕는 AI 기능이 추가될 예정입니다.', future: true },
-];
-
-const tabGuides: Array<{ name: string; when: string; features: string }> = [
-  { name: '신사업 알리미', when: '새 사업 공고가 나왔는지 확인하고 싶을 때', features: '공고 등록 · 확인 여부 체크 · 삭제 (출처 자동연동은 준비중)' },
-  { name: '기업 관리', when: '참여 기업을 새로 등록하거나 정보를 확인·수정할 때', features: '기업 등록 · 검색 · 수정 · 삭제, 엑셀 업로드/다운로드' },
-  { name: '근로자 관리', when: '근로자(참여자)를 채용 등록하거나 정보를 관리할 때', features: '근로자 등록 · 검색 · 수정 · 삭제, 엑셀 업로드/다운로드' },
-  { name: '메일 관리', when: '기업·근로자에게 안내 메일을 보낼 때', features: '템플릿 작성, 메일 발송(기업/근로자/직접입력), 발송 이력 조회' },
-  { name: '문서함', when: '제출된 서류를 정리하고 검토할 때', features: '파일 업로드(직접/메일 자동수집), AI 서류분석, 미비사항 확인, 검토보고서 다운로드' },
-  { name: '지원금 안내', when: '지원금 신청 시기를 안내하거나 산정액을 계산할 때', features: '[신청 안내] 신청가능일 자동계산·안내메일 발송 / [산정 관리] 근로일수 기반 산정·변경 감지' },
-  { name: '평가 대응', when: '(준비중)', features: '평가항목 체크리스트·보고서 자동 작성 (개발 예정)' },
-  { name: '민원응대', when: '(준비중)', features: 'AI 챗봇 상담, 인수인계 히스토리 (개발 예정)' },
-];
-
-const checklist: string[] = [
-  '[기업 관리]에서 참여 기업을 등록하세요. 엑셀 업로드로 여러 곳을 한 번에 등록할 수 있습니다.',
-  '[근로자 관리]에서 기업에 채용된 근로자를 등록하세요. 급여를 입력해야 나중에 지원금 산정이 가능합니다.',
-  '[메일 관리] → 템플릿 관리에서 자주 쓰는 안내 메일 양식을 미리 만들어두세요.',
-  '기업·근로자가 서류를 제출하면 [문서함]에서 업로드(또는 메일 자동수집)하고 AI 분석 결과를 확인하세요.',
-  '[지원금 안내] → 신청 안내에서 신청 가능한 근로자를 확인하고 안내 메일을 보내세요.',
-  '근로일수가 확정되면 [지원금 안내] → 산정 관리에서 지원금을 산정하세요.',
-  '[신사업 알리미]는 틈틈이 확인해서 새로운 사업 기회를 놓치지 마세요.',
-];
+const STANDARD_TEMPLATE_FILENAME = '잡도리AI_표준양식.xlsx';
 
 export function GuidePage() {
+  const handleDownloadTemplate = () => {
+    downloadFile('/resources/standard-template', STANDARD_TEMPLATE_FILENAME).catch((e) => {
+      window.alert(e instanceof Error ? e.message : '표준양식 다운로드에 실패했습니다.');
+    });
+  };
+
   return (
     <div className="page">
       <section className="guide-section">
         <h2>이 프로그램은 무엇을 하나요?</h2>
         <p className="hint-text" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
-          '일자리사업'은 정부 예산으로 기업의 채용을 지원하고, 채용된 근로자(참여자)가 일정 기간 근무하면 기업에
-          지원금을 지급하는 사업입니다. 이 사업을 위탁받아 운영하는 '수행기관'은 참여 기업·근로자 모집, 제출 서류
-          검토, 지원금 신청 안내 등 반복적인 행정 업무를 담당합니다. 이 프로그램은 그 업무 전체를 화면 상단의
-          탭 순서대로 진행하면서 서류 작업과 안내 업무를 자동화하도록 돕습니다.
+          {INTRO_TEXT}
         </p>
+        <p className="hint-text" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
+          {SERVER_MODE_TEXT}
+        </p>
+      </section>
+
+      <section className="guide-section">
+        <h2>대상기업 표준양식</h2>
+        <p className="hint-text" style={{ fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '0.75rem' }}>
+          [기업 DB] 화면에서 기업을 대량으로 등록할 때 사용하는 엑셀 양식입니다. 아래 버튼으로 받은 파일의 열 구성
+          그대로 채워서 업로드하면 자동으로 인식됩니다.
+        </p>
+        <button className="btn btn-primary" onClick={handleDownloadTemplate}>
+          대상기업 표준양식 다운로드
+        </button>
       </section>
 
       <section className="guide-section">
         <h2>전체 업무 흐름</h2>
         <div className="guide-flow">
-          {flowSteps.map((step) => (
+          {FLOW_STEPS.map((step) => (
             <div key={step.title} className={`guide-step ${step.future ? 'future' : ''}`}>
               <h3>{step.title}</h3>
               <p>{step.description}</p>
@@ -70,14 +61,20 @@ export function GuidePage() {
                 <th>탭</th>
                 <th>이럴 때 사용하세요</th>
                 <th>주요 기능</th>
+                <th>상태</th>
               </tr>
             </thead>
             <tbody>
-              {tabGuides.map((t) => (
+              {TAB_GUIDES.map((t) => (
                 <tr key={t.name}>
                   <td style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{t.name}</td>
                   <td style={{ whiteSpace: 'normal' }}>{t.when}</td>
                   <td style={{ whiteSpace: 'normal' }}>{t.features}</td>
+                  <td>
+                    <span className={`badge ${t.ready ? 'badge-active' : 'badge-inactive'}`}>
+                      {t.ready ? '사용 가능' : '준비중'}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -88,13 +85,20 @@ export function GuidePage() {
       <section className="guide-section">
         <h2>처음 사용하신다면 이 순서로 진행하세요</h2>
         <ol className="guide-checklist">
-          {checklist.map((item, i) => (
+          {GETTING_STARTED_STEPS.map((item, i) => (
             <li key={i}>
               <span className="num">{i + 1}</span>
               <span>{item}</span>
             </li>
           ))}
         </ol>
+      </section>
+
+      <section className="guide-section">
+        <h2>보안 안내</h2>
+        <p className="hint-text" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
+          {SECURITY_TEXT}
+        </p>
       </section>
     </div>
   );

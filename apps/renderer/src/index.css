@@ -38,70 +38,125 @@ body {
   color: var(--text);
 }
 
-.app-shell {
+.shell {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-title {
+  padding: 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+  gap: 0.15rem;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sidebar-link:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.sidebar-link.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-link.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.main-col {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
 
-.app-header {
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1.5rem;
+  padding: 0.65rem 1.5rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-}
-
-.app-header h1 {
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.conn-status {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.conn-status.error {
-  color: var(--danger);
-}
-
-.tab-nav {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0 1.5rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-}
-
-.tab-button {
-  padding: 0.65rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.tab-button:hover {
-  color: var(--text);
+.topbar-left,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.tab-button.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
+.main-content {
+  flex: 1;
+  overflow: auto;
 }
 
 .page {
-  flex: 1;
-  overflow: auto;
   padding: 1.25rem 1.5rem;
+}
+
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: min(400px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.75rem;
+}
+
+.auth-card h1 {
+  font-size: 1.2rem;
+  margin: 0 0 0.35rem;
+}
+
+.setup-step {
+  color: var(--text-muted);
+}
+
+.setup-step.active {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .toolbar {

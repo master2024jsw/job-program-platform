@@ -8,8 +8,17 @@ export interface ImportSummary {
 
 const apiBaseUrl = window.api?.apiBaseUrl ?? 'http://localhost:3000';
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
@@ -22,7 +31,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (!res.ok || !json?.success) {
-    throw new Error(json?.message ?? `요청에 실패했습니다. (${res.status})`);
+    throw new ApiError(json?.message ?? `요청에 실패했습니다. (${res.status})`, res.status);
   }
 
   return json.data as T;
@@ -34,13 +43,15 @@ export const api = {
     request<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   postForm: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', headers: {}, body: form }),
 };
 
 /** 엑셀 등 바이너리 파일을 다운로드해서 브라우저에 저장한다. */
 export async function downloadFile(path: string, fileName: string): Promise<void> {
-  const res = await fetch(`${apiBaseUrl}${path}`);
+  const res = await fetch(`${apiBaseUrl}${path}`, { credentials: 'include' });
   if (!res.ok) {
     throw new Error(`다운로드에 실패했습니다. (${res.status})`);
   }

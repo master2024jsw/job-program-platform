@@ -30,8 +30,41 @@ export class UpdateAnnouncementDto {
   category?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  typeCode?: string;
+
+  @IsOptional()
+  @IsString()
+  qualification?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsDateString()
+  applicationStartDate?: string;
+
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsDateString()
+  deadline?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  department?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  contact?: string;
+
+  @IsOptional()
   @IsBoolean()
   isChecked?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isBookmarked?: boolean;
 
   @IsOptional()
   @IsString()
