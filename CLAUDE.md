@@ -10,6 +10,7 @@ Electron 데스크톱 앱 + NestJS 백엔드 + React 프론트엔드, 로컬 SQL
 
 - 상세 구조/실행법: [README.md](README.md)
 - 다른 컴퓨터로 이전할 때: [SETUP.md](SETUP.md)
+- 저장소(Private): https://github.com/master2024jsw/job-program-platform (원격 이름 `origin`, 기본 브랜치 `master`)
 
 ## 스택 요약
 
@@ -38,6 +39,22 @@ Electron 데스크톱 앱 + NestJS 백엔드 + React 프론트엔드, 로컬 SQL
 | 세션 | `SESSION_SECRET`, `SESSION_IDLE_TIMEOUT_MINUTES` |
 
 값이 비어 있어도 서버는 정상 기동되며, 해당 기능만 실패 로그를 남기고 500으로 죽지 않도록 설계되어 있음.
+
+## 코딩 컨벤션 (기존 코드에서 관찰된 패턴 — 새 코드도 맞춰서 작성)
+
+- 커밋 메시지: 한국어. 요약 줄 + 필요시 본문에 "무엇을/왜"를 설명하는 불릿.
+- 모듈 구조: `apps/server/src/modules/<도메인>/` 아래에 `*.entity.ts`, `*.controller.ts`, `*.service.ts`, `*.module.ts`, `dto/create-*.dto.ts` / `dto/update-*.dto.ts`를 함께 배치.
+- 입력 검증: `class-validator` 데코레이터 + 전역 `ValidationPipe({ whitelist: true, transform: true })` (main.ts) 사용.
+- 외부 연동(SMTP/IMAP/크롤링/AI)은 실패해도 API가 500으로 죽지 않고 실패 로그를 남기는 방어적 패턴을 따름 — `mail.service.ts`가 참고 예시.
+- 파일명: kebab-case (`create-company.dto.ts`), 클래스/엔티티명: PascalCase.
+- 프론트엔드: 페이지 단위 컴포넌트는 `apps/renderer/src/pages/`, API 호출 래퍼는 `apps/renderer/src/api/`에 도메인별로 분리.
+
+## 알려진 이슈 / TODO
+
+- **`npm run lint`가 아직 동작하지 않음**: `apps/server`, `apps/renderer` package.json에 `lint` 스크립트는 있지만, 저장소 어디에도 ESLint 설정 파일(`.eslintrc*`, `eslint.config.*`)이 없음. 실행하면 설정 없음 오류가 남 — 설정 추가 필요.
+- `dev:server` 실행 후 콘솔이 `Found 0 errors. Watching for file changes.`에서 멈춘 것처럼 보이면, 대부분 3000번 포트를 다른 프로세스가 이미 점유(`EADDRINUSE`)하고 있는 것. 새로 로그가 안 찍히는 게 아니라 애초에 리스닝을 못 한 상태이니 `netstat -ano | findstr :3000` → `taskkill /PID <PID> /F`로 확인.
+- 로컬 개발 DB에는 테스트용 관리자 계정(로그인ID `admin`)이 이미 들어있음 — 실제 배포 전 반드시 교체/삭제할 것.
+- 프로덕션 패키징 시 Electron 안에서 NestJS 서버를 함께 구동하는 로직 미완성 (README "알려진 후속 작업" 참고).
 
 ## git에 포함되지 않는 것 (컴퓨터마다 별도 필요)
 
