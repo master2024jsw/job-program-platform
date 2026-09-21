@@ -32,3 +32,8 @@ export interface SessionUser {
 export interface SetupStatus {
   needsSetup: boolean;
 }
+
+/** 로그인 응답 — 로그인 화면에서 선택한 사업유형으로 확정된 businessId를 포함한다. */
+export interface LoginResult extends SessionUser {
+  businessId: string;
+}

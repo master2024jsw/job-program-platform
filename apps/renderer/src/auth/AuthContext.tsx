@@ -28,12 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [currentBusinessId, setCurrentBusinessIdState] = useState<string | null>(
-    () => localStorage.getItem(CURRENT_BUSINESS_KEY),
+    () => sessionStorage.getItem(CURRENT_BUSINESS_KEY),
   );
 
   const setCurrentBusinessId = useCallback((id: string) => {
     setCurrentBusinessIdState(id);
-    localStorage.setItem(CURRENT_BUSINESS_KEY, id);
+    sessionStorage.setItem(CURRENT_BUSINESS_KEY, id);
   }, []);
 
   const refreshBusinesses = useCallback(async () => {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setBusinesses(list);
     setCurrentBusinessIdState((prev) => {
       const next = prev && list.some((b) => b.id === prev) ? prev : (list[0]?.id ?? null);
-      if (next) localStorage.setItem(CURRENT_BUSINESS_KEY, next);
+      if (next) sessionStorage.setItem(CURRENT_BUSINESS_KEY, next);
       return next;
     });
   }, []);
@@ -72,12 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (dto: LoginInput) => {
-      const sessionUser = await authApi.login(dto);
+      const { businessId, ...sessionUser } = await authApi.login(dto);
       setUser(sessionUser);
       await refreshBusinesses();
+      setCurrentBusinessId(businessId);
       setStatus('authenticated');
     },
-    [refreshBusinesses],
+    [refreshBusinesses, setCurrentBusinessId],
   );
 
   const setup = useCallback(
@@ -95,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setBusinesses([]);
     setCurrentBusinessIdState(null);
-    localStorage.removeItem(CURRENT_BUSINESS_KEY);
+    sessionStorage.removeItem(CURRENT_BUSINESS_KEY);
     setStatus('unauthenticated');
   }, []);
 

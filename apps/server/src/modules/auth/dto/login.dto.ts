@@ -7,6 +7,9 @@ export class LoginDto {
   @IsString()
   password!: string;
 
+  @IsString()
+  businessTypeCode!: string;
+
   /** true면 브라우저를 닫아도 세션 쿠키가 유지된다. 공용 PC 전제이므로 기본값은 false. */
   @IsOptional()
   @IsBoolean()

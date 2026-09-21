@@ -1,21 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BUSINESS_TYPE_CODES, BUSINESS_TYPE_LABELS } from '@job-program/shared';
 import { useAuth } from '../auth/AuthContext';
+import { requiredDocumentsApi } from '../api/required-documents';
 
 export function LoginPage() {
   const { login } = useAuth();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [businessTypeCode, setBusinessTypeCode] = useState<string>(BUSINESS_TYPE_CODES[0]);
+  const [readyTypeCodes, setReadyTypeCodes] = useState<Set<string>>(new Set());
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resetNoticeOpen, setResetNoticeOpen] = useState(false);
+
+  useEffect(() => {
+    Promise.all(
+      BUSINESS_TYPE_CODES.map((code) =>
+        requiredDocumentsApi.findByTypeCode(code).then((def) => [code, def !== null] as const),
+      ),
+    )
+      .then((results) => setReadyTypeCodes(new Set(results.filter(([, ready]) => ready).map(([code]) => code))))
+      .catch(() => undefined);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await login({ loginId, password, keepLoggedIn });
+      await login({ loginId, password, businessTypeCode, keepLoggedIn });
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인에 실패했습니다.');
     } finally {
@@ -52,6 +66,27 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <div className="field full" style={{ marginBottom: '0.85rem' }}>
+            <label className="required">사업 선택</label>
+            <select
+              className="select-input"
+              style={{ width: '100%' }}
+              value={businessTypeCode}
+              onChange={(e) => setBusinessTypeCode(e.target.value)}
+              required
+            >
+              {BUSINESS_TYPE_CODES.map((code) => {
+                const ready = readyTypeCodes.has(code);
+                return (
+                  <option key={code} value={code} disabled={!ready}>
+                    {BUSINESS_TYPE_LABELS[code]}
+                    {ready ? '' : ' (준비중)'}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           <div className="field full" style={{ marginBottom: '0.85rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <input type="checkbox" checked={keepLoggedIn} onChange={(e) => setKeepLoggedIn(e.target.checked)} />

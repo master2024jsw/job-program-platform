@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { ApiResponse } from '@job-program/shared';
-import type { SessionUser, SetupStatus } from '@job-program/shared';
+import type { LoginResult, SessionUser, SetupStatus } from '@job-program/shared';
 import { AuthService } from './auth.service';
 import { SetupDto } from './dto/setup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -32,8 +32,8 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<ApiResponse<SessionUser>> {
-    const { user } = await this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<ApiResponse<LoginResult>> {
+    const { user, businessId } = await this.authService.login(dto);
     const sessionUser = this.authService.toSessionUser(user);
     req.session.userId = sessionUser.id;
     req.session.institutionId = sessionUser.institutionId;
@@ -43,7 +43,7 @@ export class AuthController {
       // @types/express-session의 타입 정의가 `false` 대입을 누락하고 있어 문서화된 동작대로 단언한다.
       (req.session.cookie as unknown as { expires: false | Date | null }).expires = false;
     }
-    return { success: true, data: sessionUser };
+    return { success: true, data: { ...sessionUser, businessId } };
   }
 
   @Post('logout')

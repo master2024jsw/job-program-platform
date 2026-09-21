@@ -43,6 +43,15 @@ export class BusinessesService {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 
+  /** 기관 내 해당 typeCode 사업 중 최신 baseYear를 반환한다 (로그인 화면 사업 선택용). */
+  async findLatestByTypeCode(institutionId: string, typeCode: string): Promise<Business | null> {
+    return this.businessesRepository.findOne({ where: { institutionId, typeCode }, order: { baseYear: 'DESC' } });
+  }
+
+  async isUserAssigned(userId: string, businessId: string): Promise<boolean> {
+    return !!(await this.userBusinessRepository.findOne({ where: { userId, businessId } }));
+  }
+
   async findOne(id: string): Promise<Business> {
     const business = await this.businessesRepository.findOne({ where: { id } });
     if (!business) {

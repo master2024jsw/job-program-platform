@@ -66,7 +66,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<{ user: User & { institution: Institution } }> {
+  async login(dto: LoginDto): Promise<{ user: User & { institution: Institution }; businessId: string }> {
     const user = await this.usersRepository.findOne({
       where: { loginId: dto.loginId },
       relations: ['institution'],
@@ -78,7 +78,23 @@ export class AuthService {
     if (!matches) {
       throw new UnauthorizedException('로그인 정보가 올바르지 않습니다.');
     }
-    return { user: user as User & { institution: Institution } };
+    const businessId = await this.resolveLoginBusinessId(user, dto.businessTypeCode);
+    return { user: user as User & { institution: Institution }, businessId };
+  }
+
+  /** 로그인 화면에서 선택한 사업유형으로 실제 진입할 사업을 결정한다 (관리자는 배정 여부 확인을 건너뜀). */
+  private async resolveLoginBusinessId(user: User, typeCode: string): Promise<string> {
+    const business = await this.businessesService.findLatestByTypeCode(user.institutionId, typeCode);
+    if (!business) {
+      throw new UnauthorizedException('등록되지 않은 사업입니다.');
+    }
+    if (user.role !== UserRole.ADMIN) {
+      const assigned = await this.businessesService.isUserAssigned(user.id, business.id);
+      if (!assigned) {
+        throw new UnauthorizedException('선택한 사업에 배정되지 않은 계정입니다.');
+      }
+    }
+    return business.id;
   }
 
   toSessionUser(user: User & { institution: Institution }): SessionUser {
