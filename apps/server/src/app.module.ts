@@ -12,6 +12,7 @@ import { SubsidyModule } from './modules/subsidy/subsidy.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
+import { RequiredDocumentsModule } from './modules/required-documents/required-documents.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { BusinessesModule } from './modules/businesses/businesses.module';
     MailCollectorModule,
     SubsidyModule,
     AnnouncementsModule,
+    RequiredDocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

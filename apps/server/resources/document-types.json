@@ -1,0 +1,11 @@
+[
+  { "code": "COMPANY_APPLICATION", "label": "참여기업 신청서" },
+  { "code": "BUSINESS_REGISTRATION", "label": "사업자등록증" },
+  { "code": "PARTICIPANT_APPLICATION", "label": "참여신청서" },
+  { "code": "PRIVACY_CONSENT", "label": "개인정보 수집·이용 동의서" },
+  { "code": "HEALTH_INSURANCE_HISTORY", "label": "건강보험자격득실확인서" },
+  { "code": "PAYSLIP", "label": "임금명세서" },
+  { "code": "EMPLOYMENT_CONTRACT", "label": "근로계약서" },
+  { "code": "ATTENDANCE_RECORD", "label": "출근부" },
+  { "code": "OTHER", "label": "기타" }
+]

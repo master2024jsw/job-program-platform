@@ -1,0 +1,25 @@
+{
+  "typeCode": "SENIOR",
+  "guidelineYear": 2026,
+  "source": "2026년도 현장실습 훈련 지원사업 운영안내(한국노인인력개발원)",
+  "stages": [
+    {
+      "stage": "COMPANY_ELIGIBILITY",
+      "label": "기업 적격 확인",
+      "target": "COMPANY",
+      "documents": ["COMPANY_APPLICATION"]
+    },
+    {
+      "stage": "PARTICIPANT_ELIGIBILITY",
+      "label": "참여자 적격 확인",
+      "target": "WORKER",
+      "documents": ["PARTICIPANT_APPLICATION", "PRIVACY_CONSENT", "HEALTH_INSURANCE_HISTORY"]
+    },
+    {
+      "stage": "SUBSIDY_VERIFICATION",
+      "label": "지원금 신청 서류검증(일반형)",
+      "target": "WORKER",
+      "documents": ["PAYSLIP", "EMPLOYMENT_CONTRACT", "ATTENDANCE_RECORD"]
+    }
+  ]
+}
