@@ -50,6 +50,14 @@ git clone https://github.com/master2024jsw/job-program-platform.git
 cd job-program-platform
 ```
 
+> **진행 중인 작업 브랜치를 이어서 하려면** (예: 05 실행계획 사업스코프확장) 클론 직후 아래처럼 체크아웃하세요.
+> `master`만 클론하면 병합 전까지의 진행 상황이 보이지 않습니다.
+> ```bash
+> git fetch origin
+> git checkout claude/work-status-plan-cetclm
+> ```
+> 현재 어떤 브랜치가 작업 중인지, 어디까지 됐는지는 CLAUDE.md의 "진행 중인 작업"과 [docs/05_실행계획_사업스코프확장.md](docs/05_실행계획_사업스코프확장.md)의 진행 상태 체크리스트를 참고하세요.
+
 ### 2) 백업 zip 압축 해제
 구글 드라이브에서 `job-program-platform-backup_2026-08-14.zip`을 다운로드한 뒤, 압축을 풀어 아래 위치에 **그대로** 덮어씁니다.
 
