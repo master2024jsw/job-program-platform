@@ -4,6 +4,7 @@ import { api } from './client';
 export type MailTemplateInput = { name: string; subject: string; body: string };
 
 export interface SendMailInput {
+  businessId: string;
   to?: string[];
   companyId?: string;
   workerId?: string;
@@ -22,5 +23,5 @@ export const mailTemplatesApi = {
 
 export const mailApi = {
   send: (dto: SendMailInput) => api.post<MailLog[]>('/mail/send', dto),
-  logs: () => api.get<MailLog[]>('/mail/logs'),
+  logs: (businessId?: string) => api.get<MailLog[]>(`/mail/logs${businessId ? `?businessId=${businessId}` : ''}`),
 };

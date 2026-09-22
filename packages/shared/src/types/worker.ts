@@ -17,6 +17,7 @@ export enum WorkerStatus {
 
 export interface Worker {
   id: string;
+  businessId?: string | null;
   name: string;
   birthDate: string;
   gender?: Gender | null;

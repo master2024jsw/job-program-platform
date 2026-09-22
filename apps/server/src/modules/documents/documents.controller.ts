@@ -70,11 +70,18 @@ export class DocumentsController {
   @Get()
   async findAll(
     @Query('businessId') businessId?: string,
+    @Query('unassigned') unassigned?: string,
     @Query('companyId') companyId?: string,
     @Query('workerId') workerId?: string,
     @Query('status') status?: DocumentAnalysisStatus,
   ): Promise<ApiResponse<Document[]>> {
-    const documents = await this.documentsService.findAll({ businessId, companyId, workerId, status });
+    const documents = await this.documentsService.findAll({
+      businessId,
+      unassigned: unassigned === 'true',
+      companyId,
+      workerId,
+      status,
+    });
     return { success: true, data: documents };
   }
 

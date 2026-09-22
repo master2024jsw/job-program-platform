@@ -45,6 +45,7 @@ export interface RequiredDocumentsDef {
 
 export interface Document {
   id: string;
+  businessId?: string | null;
   fileName: string;
   mimeType: string;
   fileSize: number;

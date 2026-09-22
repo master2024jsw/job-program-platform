@@ -8,17 +8,20 @@ export interface CollectSummary {
 }
 
 export const documentsApi = {
-  list: (params?: { companyId?: string; workerId?: string; status?: string }) => {
+  list: (params?: { businessId?: string; unassigned?: boolean; companyId?: string; workerId?: string; status?: string }) => {
     const query = new URLSearchParams();
+    if (params?.businessId) query.set('businessId', params.businessId);
+    if (params?.unassigned) query.set('unassigned', 'true');
     if (params?.companyId) query.set('companyId', params.companyId);
     if (params?.workerId) query.set('workerId', params.workerId);
     if (params?.status) query.set('status', params.status);
     const qs = query.toString();
     return api.get<Document[]>(`/documents${qs ? `?${qs}` : ''}`);
   },
-  upload: (file: File, meta: { documentType?: string; companyId?: string; workerId?: string }) => {
+  upload: (file: File, meta: { businessId: string; documentType?: string; companyId?: string; workerId?: string }) => {
     const form = new FormData();
     form.append('file', file);
+    form.append('businessId', meta.businessId);
     if (meta.documentType) form.append('documentType', meta.documentType);
     if (meta.companyId) form.append('companyId', meta.companyId);
     if (meta.workerId) form.append('workerId', meta.workerId);
@@ -27,7 +30,7 @@ export const documentsApi = {
   analyze: (id: string) => api.post<Document>(`/documents/${id}/analyze`, {}),
   update: (
     id: string,
-    dto: { reviewedData?: Record<string, unknown>; status?: string; companyId?: string; workerId?: string },
+    dto: { businessId?: string; reviewedData?: Record<string, unknown>; status?: string; companyId?: string; workerId?: string },
   ) => api.patch<Document>(`/documents/${id}`, dto),
   remove: (id: string) => api.delete<null>(`/documents/${id}`),
   collectAttachments: () => api.post<CollectSummary>('/mail-collector/collect', {}),

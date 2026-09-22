@@ -3,6 +3,7 @@ import { ContractType, Gender, WorkerStatus, type Company, type Worker } from '@
 import { workersApi, type WorkerInput } from '../api/workers';
 import { companiesApi } from '../api/companies';
 import type { ImportSummary } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { ImportResultModal } from '../components/ImportResultModal';
 
@@ -41,6 +42,7 @@ const statusLabel: Record<WorkerStatus, string> = {
 };
 
 export function WorkersPage() {
+  const { currentBusinessId } = useAuth();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,11 @@ export function WorkersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await workersApi.list({ keyword: kw, companyId: companyId || undefined });
+      const data = await workersApi.list({
+        keyword: kw,
+        companyId: companyId || undefined,
+        businessId: currentBusinessId ?? undefined,
+      });
       setWorkers(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : '근로자 목록을 불러오지 못했습니다.');
@@ -82,9 +88,10 @@ export function WorkersPage() {
   };
 
   useEffect(() => {
-    load();
+    load(keyword, companyFilter);
     loadCompanies();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId]);
 
   const openCreate = () => {
     setEditing(null);
@@ -130,7 +137,7 @@ export function WorkersPage() {
       if (editing) {
         await workersApi.update(editing.id, payload);
       } else {
-        await workersApi.create(payload);
+        await workersApi.create({ ...payload, businessId: currentBusinessId ?? undefined });
       }
       setModalOpen(false);
       await load(keyword, companyFilter);
@@ -157,7 +164,7 @@ export function WorkersPage() {
     if (!file) return;
     setImporting(true);
     try {
-      const summary = await workersApi.importExcel(file);
+      const summary = await workersApi.importExcel(file, currentBusinessId ?? undefined);
       setImportSummary(summary);
       await load(keyword, companyFilter);
     } catch (err) {

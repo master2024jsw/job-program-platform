@@ -3,6 +3,7 @@ import type { MailTemplate, Worker } from '@job-program/shared';
 import { subsidyApi, type SubsidyEligibilityRow, type SubsidyCalculationRow } from '../api/subsidy';
 import { mailApi, mailTemplatesApi } from '../api/mail';
 import { workersApi } from '../api/workers';
+import { useAuth } from '../auth/AuthContext';
 
 type SubTab = 'eligibility' | 'calculation';
 
@@ -33,6 +34,7 @@ export function SubsidyPage() {
 }
 
 function EligibilityPanel() {
+  const { currentBusinessId } = useAuth();
   const [rows, setRows] = useState<SubsidyEligibilityRow[]>([]);
   const [monthsInput, setMonthsInput] = useState('3');
   const [savingSettings, setSavingSettings] = useState(false);
@@ -44,10 +46,14 @@ function EligibilityPanel() {
   const [sending, setSending] = useState(false);
 
   const load = async () => {
+    if (!currentBusinessId) return;
     setLoading(true);
     setError(null);
     try {
-      const [settings, eligibility] = await Promise.all([subsidyApi.getSettings(), subsidyApi.listEligibility()]);
+      const [settings, eligibility] = await Promise.all([
+        subsidyApi.getSettings(currentBusinessId),
+        subsidyApi.listEligibility(currentBusinessId),
+      ]);
       setMonthsInput(String(settings.eligibilityMonths));
       setRows(eligibility);
     } catch (e) {
@@ -60,9 +66,11 @@ function EligibilityPanel() {
   useEffect(() => {
     load();
     mailTemplatesApi.list().then(setTemplates).catch(() => undefined);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId]);
 
   const handleSaveMonths = async () => {
+    if (!currentBusinessId) return;
     const n = Number(monthsInput);
     if (!Number.isInteger(n) || n < 1 || n > 36) {
       window.alert('1~36 사이의 정수를 입력하세요.');
@@ -70,7 +78,7 @@ function EligibilityPanel() {
     }
     setSavingSettings(true);
     try {
-      await subsidyApi.updateSettings(n);
+      await subsidyApi.updateSettings(currentBusinessId, n);
       await load();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '저장에 실패했습니다.');
@@ -93,6 +101,10 @@ function EligibilityPanel() {
   };
 
   const handleBulkSend = async () => {
+    if (!currentBusinessId) {
+      window.alert('사업을 먼저 선택하세요.');
+      return;
+    }
     if (!templateId) {
       window.alert('메일 템플릿을 선택하세요.');
       return;
@@ -109,6 +121,7 @@ function EligibilityPanel() {
     for (const row of targets) {
       try {
         const logs = await mailApi.send({
+          businessId: currentBusinessId,
           workerId: row.workerId,
           templateId,
           variables: {
@@ -240,6 +253,7 @@ function EligibilityPanel() {
 }
 
 function CalculationPanel() {
+  const { currentBusinessId } = useAuth();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [calculations, setCalculations] = useState<SubsidyCalculationRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -255,7 +269,7 @@ function CalculationPanel() {
     setLoading(true);
     setError(null);
     try {
-      setCalculations(await subsidyApi.listCalculations());
+      setCalculations(await subsidyApi.listCalculations({ businessId: currentBusinessId ?? undefined }));
     } catch (e) {
       setError(e instanceof Error ? e.message : '산정 이력을 불러오지 못했습니다.');
     } finally {
@@ -264,12 +278,17 @@ function CalculationPanel() {
   };
 
   useEffect(() => {
-    workersApi.list().then(setWorkers).catch(() => undefined);
+    workersApi.list({ businessId: currentBusinessId ?? undefined }).then(setWorkers).catch(() => undefined);
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId]);
 
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentBusinessId) {
+      setCalcError('사업을 먼저 선택하세요.');
+      return;
+    }
     const days = Number(workedDays);
     if (!workerId) {
       setCalcError('근로자를 선택하세요.');
@@ -286,7 +305,12 @@ function CalculationPanel() {
     setCalculating(true);
     setCalcError(null);
     try {
-      await subsidyApi.calculate({ workerId, periodLabel: periodLabel.trim(), workedDays: days });
+      await subsidyApi.calculate({
+        businessId: currentBusinessId,
+        workerId,
+        periodLabel: periodLabel.trim(),
+        workedDays: days,
+      });
       setPeriodLabel('');
       setWorkedDays('');
       await load();

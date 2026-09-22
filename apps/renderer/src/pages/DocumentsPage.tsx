@@ -4,6 +4,7 @@ import { documentsApi } from '../api/documents';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
 import { mailApi, mailTemplatesApi } from '../api/mail';
+import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 
 const STATUS_LABEL: Record<DocumentAnalysisStatus, string> = {
@@ -27,6 +28,7 @@ function getMissingItems(doc: Document): string[] {
 }
 
 export function DocumentsPage() {
+  const { currentBusinessId } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -35,6 +37,7 @@ export function DocumentsPage() {
   const [collecting, setCollecting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [reviewing, setReviewing] = useState<Document | null>(null);
+  const [showUnassigned, setShowUnassigned] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const companyMap = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
@@ -44,7 +47,10 @@ export function DocumentsPage() {
     setLoading(true);
     setError(null);
     try {
-      setDocuments(await documentsApi.list());
+      const data = showUnassigned
+        ? await documentsApi.list({ unassigned: true })
+        : await documentsApi.list({ businessId: currentBusinessId ?? undefined });
+      setDocuments(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : '문서 목록을 불러오지 못했습니다.');
     } finally {
@@ -54,9 +60,24 @@ export function DocumentsPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId, showUnassigned]);
+
+  useEffect(() => {
     companiesApi.list().then(setCompanies).catch(() => undefined);
-    workersApi.list().then(setWorkers).catch(() => undefined);
-  }, []);
+    workersApi.list({ businessId: currentBusinessId ?? undefined }).then(setWorkers).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId]);
+
+  const handleAssignToCurrentBusiness = async (doc: Document) => {
+    if (!currentBusinessId) return;
+    try {
+      const updated = await documentsApi.update(doc.id, { businessId: currentBusinessId });
+      setDocuments((prev) => prev.filter((d) => d.id !== updated.id));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '사업 지정에 실패했습니다.');
+    }
+  };
 
   const handleCollect = async () => {
     setCollecting(true);
@@ -78,9 +99,13 @@ export function DocumentsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (!currentBusinessId) {
+      window.alert('사업을 먼저 선택하세요.');
+      return;
+    }
     setUploading(true);
     try {
-      await documentsApi.upload(file, {});
+      await documentsApi.upload(file, { businessId: currentBusinessId });
       await load();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
@@ -113,10 +138,27 @@ export function DocumentsPage() {
 
   return (
     <div className="page">
+      <div className="sub-tab-nav">
+        <button
+          className={`btn btn-sm ${!showUnassigned ? 'btn-primary' : ''}`}
+          onClick={() => setShowUnassigned(false)}
+        >
+          현재 사업 문서
+        </button>
+        <button
+          className={`btn btn-sm ${showUnassigned ? 'btn-primary' : ''}`}
+          onClick={() => setShowUnassigned(true)}
+        >
+          미분류 문서
+        </button>
+      </div>
+
       <div className="toolbar">
         <div className="toolbar-left">
           <p className="hint-text">
-            메일로 회신된 첨부파일을 자동 수집하거나, PDF/이미지/HWP 문서를 직접 업로드해 AI로 분석할 수 있습니다.
+            {showUnassigned
+              ? '메일 자동수집 시 발신 기업이 여러 사업에 참여 중이거나 매칭되지 않아 사업이 지정되지 않은 문서입니다.'
+              : '메일로 회신된 첨부파일을 자동 수집하거나, PDF/이미지/HWP 문서를 직접 업로드해 AI로 분석할 수 있습니다.'}
           </p>
         </div>
         <div className="toolbar-left">
@@ -126,7 +168,11 @@ export function DocumentsPage() {
           <button className="btn" disabled={collecting} onClick={handleCollect}>
             {collecting ? '수집 중...' : '첨부파일 수집'}
           </button>
-          <button className="btn btn-primary" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+          <button
+            className="btn btn-primary"
+            disabled={uploading || showUnassigned}
+            onClick={() => fileInputRef.current?.click()}
+          >
             {uploading ? '업로드 중...' : '+ 문서 업로드'}
           </button>
           <input
@@ -191,6 +237,11 @@ export function DocumentsPage() {
                   </td>
                   <td>{new Date(doc.createdAt).toLocaleString('ko-KR')}</td>
                   <td className="actions">
+                    {showUnassigned && (
+                      <button className="btn btn-sm" onClick={() => handleAssignToCurrentBusiness(doc)}>
+                        현재 사업으로 지정
+                      </button>
+                    )}
                     {doc.status === DocumentAnalysisStatus.PENDING ? (
                       <button className="btn btn-sm" onClick={() => handleAnalyze(doc)}>
                         분석 실행
@@ -216,6 +267,7 @@ export function DocumentsPage() {
           document={reviewing}
           companies={companies}
           workers={workers}
+          businessId={reviewing.businessId ?? currentBusinessId ?? ''}
           onClose={() => setReviewing(null)}
           onAnalyze={() => handleAnalyze(reviewing)}
           onSaved={(updated) => {
@@ -232,6 +284,7 @@ function DocumentReviewModal({
   document,
   companies,
   workers,
+  businessId,
   onClose,
   onAnalyze,
   onSaved,
@@ -239,6 +292,7 @@ function DocumentReviewModal({
   document: Document;
   companies: Company[];
   workers: Worker[];
+  businessId: string;
   onClose: () => void;
   onAnalyze: () => void;
   onSaved: (updated: Document) => void;
@@ -271,6 +325,7 @@ function DocumentReviewModal({
     setNotifying(true);
     try {
       const logs = await mailApi.send({
+        businessId,
         companyId: workerId ? undefined : companyId || undefined,
         workerId: workerId || undefined,
         templateId: notifyTemplateId,

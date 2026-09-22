@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
 import { DocumentAnalysisStatus } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
@@ -67,13 +67,14 @@ export class DocumentsService {
 
   findAll(filters?: {
     businessId?: string;
+    unassigned?: boolean;
     companyId?: string;
     workerId?: string;
     status?: DocumentAnalysisStatus;
   }): Promise<Document[]> {
     return this.documentsRepository.find({
       where: {
-        ...(filters?.businessId && { businessId: filters.businessId }),
+        ...(filters?.unassigned ? { businessId: IsNull() } : filters?.businessId ? { businessId: filters.businessId } : {}),
         ...(filters?.companyId && { companyId: filters.companyId }),
         ...(filters?.workerId && { workerId: filters.workerId }),
         ...(filters?.status && { status: filters.status }),

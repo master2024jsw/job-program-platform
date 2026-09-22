@@ -14,6 +14,7 @@ export interface MailTemplate {
 
 export interface MailLog {
   id: string;
+  businessId?: string | null;
   to: string;
   subject: string;
   body: string;

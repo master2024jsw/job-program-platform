@@ -3,6 +3,7 @@ import { MailLogStatus, type Company, type MailLog, type MailTemplate, type Work
 import { mailApi, mailTemplatesApi, type MailTemplateInput } from '../api/mail';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
+import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 
 type SubTab = 'send' | 'templates' | 'logs';
@@ -15,6 +16,7 @@ function extractVariables(text: string): string[] {
 const emptyTemplateForm: MailTemplateInput = { name: '', subject: '', body: '' };
 
 export function MailPage() {
+  const { currentBusinessId } = useAuth();
   const [subTab, setSubTab] = useState<SubTab>('send');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -23,17 +25,19 @@ export function MailPage() {
 
   useEffect(() => {
     companiesApi.list().then(setCompanies).catch(() => undefined);
-    workersApi.list().then(setWorkers).catch(() => undefined);
+    workersApi.list({ businessId: currentBusinessId ?? undefined }).then(setWorkers).catch(() => undefined);
     mailTemplatesApi.list().then(setTemplates).catch(() => undefined);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId]);
 
   const refreshLogs = () => {
-    mailApi.logs().then(setLogs).catch(() => undefined);
+    mailApi.logs(currentBusinessId ?? undefined).then(setLogs).catch(() => undefined);
   };
 
   useEffect(() => {
     if (subTab === 'logs') refreshLogs();
-  }, [subTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, currentBusinessId]);
 
   return (
     <div className="page">
@@ -52,7 +56,9 @@ export function MailPage() {
         </button>
       </div>
 
-      {subTab === 'send' && <SendMailPanel companies={companies} workers={workers} templates={templates} />}
+      {subTab === 'send' && (
+        <SendMailPanel companies={companies} workers={workers} templates={templates} businessId={currentBusinessId} />
+      )}
       {subTab === 'templates' && <TemplatesPanel templates={templates} onChange={setTemplates} />}
       {subTab === 'logs' && <LogsPanel logs={logs} onRefresh={refreshLogs} />}
     </div>
@@ -63,10 +69,12 @@ function SendMailPanel({
   companies,
   workers,
   templates,
+  businessId,
 }: {
   companies: Company[];
   workers: Worker[];
   templates: MailTemplate[];
+  businessId: string | null;
 }) {
   const [mode, setMode] = useState<'manual' | 'company' | 'worker'>('company');
   const [manualEmails, setManualEmails] = useState('');
@@ -89,11 +97,16 @@ function SendMailPanel({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!businessId) {
+      setSendError('사업을 먼저 선택하세요.');
+      return;
+    }
     setSending(true);
     setSendError(null);
     setResult(null);
     try {
       const dto = {
+        businessId,
         to: mode === 'manual' ? manualEmails.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
         companyId: mode === 'company' ? companyId || undefined : undefined,
         workerId: mode === 'worker' ? workerId || undefined : undefined,
