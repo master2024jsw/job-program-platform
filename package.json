@@ -32,6 +32,12 @@
     "node-gyp": "^13.0.1"
   },
   "allowScripts": {
-    "winax@3.6.9": true
+    "winax@3.6.9": true,
+    "@google/genai@2.12.0": true,
+    "@nestjs/core@10.4.22": true,
+    "better-sqlite3@11.10.0": true,
+    "electron@32.3.3": true,
+    "esbuild@0.21.5": true,
+    "protobufjs@7.6.5": true
   }
 }
