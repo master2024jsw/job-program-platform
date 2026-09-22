@@ -1,5 +1,5 @@
-import { IsEnum, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
-import { DocumentAnalysisStatus } from '@job-program/shared';
+import { IsEnum, IsIn, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, type DocumentTypeCode } from '@job-program/shared';
 
 export class UpdateDocumentDto {
   @IsOptional()
@@ -7,8 +7,8 @@ export class UpdateDocumentDto {
   businessId?: string;
 
   @IsOptional()
-  @IsString()
-  documentType?: string;
+  @IsIn(DOCUMENT_TYPE_CODES)
+  documentType?: DocumentTypeCode;
 
   @IsOptional()
   @IsUUID()

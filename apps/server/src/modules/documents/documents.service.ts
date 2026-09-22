@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
-import { DocumentAnalysisStatus } from '@job-program/shared';
+import { DOCUMENT_TYPE_CODES, DocumentAnalysisStatus } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
 import { Document } from './document.entity';
 import { Company } from '../companies/company.entity';
@@ -101,6 +101,13 @@ export class DocumentsService {
       const pdfPath = await this.ensurePdf(document);
       const extractedData = await this.geminiService.extractFromPdf(pdfPath, dto.prompt);
       document.extractedData = extractedData;
+      // 업로드 시 실무자가 직접 문서종류를 지정했으면 AI 판단으로 덮어쓰지 않는다.
+      if (!document.documentType) {
+        const aiDocumentType = extractedData.documentType;
+        if (typeof aiDocumentType === 'string' && (DOCUMENT_TYPE_CODES as readonly string[]).includes(aiDocumentType)) {
+          document.documentType = aiDocumentType;
+        }
+      }
       document.status = DocumentAnalysisStatus.ANALYZED;
       document.analyzedAt = new Date();
     } catch (error) {

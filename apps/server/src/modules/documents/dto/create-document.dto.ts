@@ -1,12 +1,13 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { DOCUMENT_TYPE_CODES, type DocumentTypeCode } from '@job-program/shared';
 
 export class CreateDocumentDto {
   @IsString()
   businessId!: string;
 
   @IsOptional()
-  @IsString()
-  documentType?: string;
+  @IsIn(DOCUMENT_TYPE_CODES)
+  documentType?: DocumentTypeCode;
 
   @IsOptional()
   @IsUUID()

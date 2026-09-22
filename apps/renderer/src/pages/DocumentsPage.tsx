@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DocumentAnalysisStatus, type Company, type Document, type MailTemplate, type Worker } from '@job-program/shared';
+import {
+  DocumentAnalysisStatus,
+  type Company,
+  type Document,
+  type DocumentTypeCode,
+  type DocumentTypeDef,
+  type MailTemplate,
+  type Worker,
+} from '@job-program/shared';
 import { documentsApi } from '../api/documents';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
 import { mailApi, mailTemplatesApi } from '../api/mail';
+import { requiredDocumentsApi } from '../api/required-documents';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 
@@ -32,16 +41,27 @@ export function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeDef[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collecting, setCollecting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadDocumentType, setUploadDocumentType] = useState<DocumentTypeCode | ''>('');
   const [reviewing, setReviewing] = useState<Document | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const companyMap = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
   const workerMap = useMemo(() => new Map(workers.map((w) => [w.id, w.name])), [workers]);
+  const documentTypeLabelMap = useMemo(
+    () => new Map<string, string>(documentTypes.map((t) => [t.code, t.label])),
+    [documentTypes],
+  );
+
+  const documentTypeLabel = (code?: string | null): string => {
+    if (!code) return '-';
+    return documentTypeLabelMap.get(code) ?? '미분류';
+  };
 
   const load = async () => {
     setLoading(true);
@@ -68,6 +88,10 @@ export function DocumentsPage() {
     workersApi.list({ businessId: currentBusinessId ?? undefined }).then(setWorkers).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBusinessId]);
+
+  useEffect(() => {
+    requiredDocumentsApi.documentTypes().then(setDocumentTypes).catch(() => undefined);
+  }, []);
 
   const handleAssignToCurrentBusiness = async (doc: Document) => {
     if (!currentBusinessId) return;
@@ -105,7 +129,8 @@ export function DocumentsPage() {
     }
     setUploading(true);
     try {
-      await documentsApi.upload(file, { businessId: currentBusinessId });
+      await documentsApi.upload(file, { businessId: currentBusinessId, documentType: uploadDocumentType || undefined });
+      setUploadDocumentType('');
       await load();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
@@ -168,6 +193,20 @@ export function DocumentsPage() {
           <button className="btn" disabled={collecting} onClick={handleCollect}>
             {collecting ? '수집 중...' : '첨부파일 수집'}
           </button>
+          {!showUnassigned && (
+            <select
+              className="select-input"
+              value={uploadDocumentType}
+              onChange={(e) => setUploadDocumentType(e.target.value as DocumentTypeCode | '')}
+            >
+              <option value="">문서종류: AI 자동 분류</option>
+              {documentTypes.map((t) => (
+                <option key={t.code} value={t.code}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             className="btn btn-primary"
             disabled={uploading || showUnassigned}
@@ -218,7 +257,7 @@ export function DocumentsPage() {
                 return (
                 <tr key={doc.id}>
                   <td>{doc.fileName}</td>
-                  <td>{doc.documentType || '-'}</td>
+                  <td>{documentTypeLabel(doc.documentType)}</td>
                   <td>{doc.source === 'IMAP' ? `메일 수집${doc.senderEmail ? ` (${doc.senderEmail})` : ''}` : '직접 업로드'}</td>
                   <td>
                     {doc.companyId ? companyMap.get(doc.companyId) ?? '-' : ''}
@@ -267,6 +306,7 @@ export function DocumentsPage() {
           document={reviewing}
           companies={companies}
           workers={workers}
+          documentTypes={documentTypes}
           businessId={reviewing.businessId ?? currentBusinessId ?? ''}
           onClose={() => setReviewing(null)}
           onAnalyze={() => handleAnalyze(reviewing)}
@@ -284,6 +324,7 @@ function DocumentReviewModal({
   document,
   companies,
   workers,
+  documentTypes,
   businessId,
   onClose,
   onAnalyze,
@@ -292,6 +333,7 @@ function DocumentReviewModal({
   document: Document;
   companies: Company[];
   workers: Worker[];
+  documentTypes: DocumentTypeDef[];
   businessId: string;
   onClose: () => void;
   onAnalyze: () => void;
@@ -301,6 +343,9 @@ function DocumentReviewModal({
   const [jsonText, setJsonText] = useState(JSON.stringify(initialData, null, 2));
   const [companyId, setCompanyId] = useState(document.companyId ?? '');
   const [workerId, setWorkerId] = useState(document.workerId ?? '');
+  const [documentType, setDocumentType] = useState<DocumentTypeCode | ''>(
+    (documentTypes.some((t) => t.code === document.documentType) ? document.documentType : '') as DocumentTypeCode | '',
+  );
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -362,6 +407,7 @@ function DocumentReviewModal({
       const updated = await documentsApi.update(document.id, {
         reviewedData: parsed,
         status: 'REVIEWED',
+        documentType: documentType || undefined,
         companyId: companyId || undefined,
         workerId: workerId || undefined,
       });
@@ -413,6 +459,21 @@ function DocumentReviewModal({
       )}
 
       <div className="form-grid" style={{ marginBottom: '0.85rem' }}>
+        <div className="field">
+          <label>문서종류</label>
+          <select
+            className="select-input"
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value as DocumentTypeCode | '')}
+          >
+            <option value="">미분류</option>
+            {documentTypes.map((t) => (
+              <option key={t.code} value={t.code}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="field">
           <label>소속기업</label>
           <select className="select-input" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>

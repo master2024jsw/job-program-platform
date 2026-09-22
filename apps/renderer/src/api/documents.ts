@@ -1,4 +1,4 @@
-import type { Document } from '@job-program/shared';
+import type { Document, DocumentTypeCode } from '@job-program/shared';
 import { api, downloadFile } from './client';
 
 export interface CollectSummary {
@@ -18,7 +18,10 @@ export const documentsApi = {
     const qs = query.toString();
     return api.get<Document[]>(`/documents${qs ? `?${qs}` : ''}`);
   },
-  upload: (file: File, meta: { businessId: string; documentType?: string; companyId?: string; workerId?: string }) => {
+  upload: (
+    file: File,
+    meta: { businessId: string; documentType?: DocumentTypeCode; companyId?: string; workerId?: string },
+  ) => {
     const form = new FormData();
     form.append('file', file);
     form.append('businessId', meta.businessId);
@@ -30,7 +33,14 @@ export const documentsApi = {
   analyze: (id: string) => api.post<Document>(`/documents/${id}/analyze`, {}),
   update: (
     id: string,
-    dto: { businessId?: string; reviewedData?: Record<string, unknown>; status?: string; companyId?: string; workerId?: string },
+    dto: {
+      businessId?: string;
+      documentType?: DocumentTypeCode;
+      reviewedData?: Record<string, unknown>;
+      status?: string;
+      companyId?: string;
+      workerId?: string;
+    },
   ) => api.patch<Document>(`/documents/${id}`, dto),
   remove: (id: string) => api.delete<null>(`/documents/${id}`),
   collectAttachments: () => api.post<CollectSummary>('/mail-collector/collect', {}),
