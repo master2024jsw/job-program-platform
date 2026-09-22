@@ -15,6 +15,9 @@ import { mailApi, mailTemplatesApi } from '../api/mail';
 import { requiredDocumentsApi } from '../api/required-documents';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
+import { RequiredDocumentsChecklist } from '../components/RequiredDocumentsChecklist';
+
+type ViewMode = 'current' | 'unassigned' | 'checklist';
 
 const STATUS_LABEL: Record<DocumentAnalysisStatus, string> = {
   [DocumentAnalysisStatus.PENDING]: '대기',
@@ -37,7 +40,7 @@ function getMissingItems(doc: Document): string[] {
 }
 
 export function DocumentsPage() {
-  const { currentBusinessId } = useAuth();
+  const { currentBusinessId, currentBusiness } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -48,7 +51,9 @@ export function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState<DocumentTypeCode | ''>('');
   const [reviewing, setReviewing] = useState<Document | null>(null);
-  const [showUnassigned, setShowUnassigned] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('current');
+  const [checklistCompanyId, setChecklistCompanyId] = useState('');
+  const [checklistWorkerId, setChecklistWorkerId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const companyMap = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
@@ -64,12 +69,14 @@ export function DocumentsPage() {
   };
 
   const load = async () => {
+    if (viewMode === 'checklist') return;
     setLoading(true);
     setError(null);
     try {
-      const data = showUnassigned
-        ? await documentsApi.list({ unassigned: true })
-        : await documentsApi.list({ businessId: currentBusinessId ?? undefined });
+      const data =
+        viewMode === 'unassigned'
+          ? await documentsApi.list({ unassigned: true })
+          : await documentsApi.list({ businessId: currentBusinessId ?? undefined });
       setDocuments(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : '문서 목록을 불러오지 못했습니다.');
@@ -81,7 +88,7 @@ export function DocumentsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBusinessId, showUnassigned]);
+  }, [currentBusinessId, viewMode]);
 
   useEffect(() => {
     companiesApi.list().then(setCompanies).catch(() => undefined);
@@ -165,69 +172,135 @@ export function DocumentsPage() {
     <div className="page">
       <div className="sub-tab-nav">
         <button
-          className={`btn btn-sm ${!showUnassigned ? 'btn-primary' : ''}`}
-          onClick={() => setShowUnassigned(false)}
+          className={`btn btn-sm ${viewMode === 'current' ? 'btn-primary' : ''}`}
+          onClick={() => setViewMode('current')}
         >
           현재 사업 문서
         </button>
         <button
-          className={`btn btn-sm ${showUnassigned ? 'btn-primary' : ''}`}
-          onClick={() => setShowUnassigned(true)}
+          className={`btn btn-sm ${viewMode === 'unassigned' ? 'btn-primary' : ''}`}
+          onClick={() => setViewMode('unassigned')}
         >
           미분류 문서
         </button>
+        <button
+          className={`btn btn-sm ${viewMode === 'checklist' ? 'btn-primary' : ''}`}
+          onClick={() => setViewMode('checklist')}
+        >
+          필수서류 체크리스트
+        </button>
       </div>
 
-      <div className="toolbar">
-        <div className="toolbar-left">
-          <p className="hint-text">
-            {showUnassigned
-              ? '메일 자동수집 시 발신 기업이 여러 사업에 참여 중이거나 매칭되지 않아 사업이 지정되지 않은 문서입니다.'
-              : '메일로 회신된 첨부파일을 자동 수집하거나, PDF/이미지/HWP 문서를 직접 업로드해 AI로 분석할 수 있습니다.'}
-          </p>
-        </div>
-        <div className="toolbar-left">
-          <button className="btn" onClick={() => documentsApi.exportReport()}>
-            AI 검토 보고서 다운로드
-          </button>
-          <button className="btn" disabled={collecting} onClick={handleCollect}>
-            {collecting ? '수집 중...' : '첨부파일 수집'}
-          </button>
-          {!showUnassigned && (
-            <select
-              className="select-input"
-              value={uploadDocumentType}
-              onChange={(e) => setUploadDocumentType(e.target.value as DocumentTypeCode | '')}
-            >
-              <option value="">문서종류: AI 자동 분류</option>
-              {documentTypes.map((t) => (
-                <option key={t.code} value={t.code}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+      {viewMode === 'checklist' ? (
+        <div>
+          <p className="hint-text">기업 또는 근로자를 선택하면 해당 대상에 적용되는 단계별 필수서류 제출 여부를 보여줍니다.</p>
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <select
+                className="select-input"
+                value={checklistCompanyId}
+                onChange={(e) => {
+                  setChecklistCompanyId(e.target.value);
+                  if (e.target.value) setChecklistWorkerId('');
+                }}
+              >
+                <option value="">기업 선택 (기업 적격 서류)</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="select-input"
+                value={checklistWorkerId}
+                onChange={(e) => {
+                  setChecklistWorkerId(e.target.value);
+                  if (e.target.value) setChecklistCompanyId('');
+                }}
+              >
+                <option value="">근로자 선택 (참여자·지원금 서류)</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {!checklistCompanyId && !checklistWorkerId && (
+            <p className="hint-text">기업 또는 근로자를 선택하세요.</p>
           )}
-          <button
-            className="btn btn-primary"
-            disabled={uploading || showUnassigned}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? '업로드 중...' : '+ 문서 업로드'}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.hwp,.jpg,.jpeg,.png"
-            style={{ display: 'none' }}
-            onChange={handleUploadFileChange}
-          />
+          {currentBusinessId && currentBusiness && checklistCompanyId && (
+            <RequiredDocumentsChecklist
+              businessId={currentBusinessId}
+              typeCode={currentBusiness.typeCode}
+              target="COMPANY"
+              targetId={checklistCompanyId}
+            />
+          )}
+          {currentBusinessId && currentBusiness && checklistWorkerId && (
+            <RequiredDocumentsChecklist
+              businessId={currentBusinessId}
+              typeCode={currentBusiness.typeCode}
+              target="WORKER"
+              targetId={checklistWorkerId}
+            />
+          )}
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <p className="hint-text">
+                {viewMode === 'unassigned'
+                  ? '메일 자동수집 시 발신 기업이 여러 사업에 참여 중이거나 매칭되지 않아 사업이 지정되지 않은 문서입니다.'
+                  : '메일로 회신된 첨부파일을 자동 수집하거나, PDF/이미지/HWP 문서를 직접 업로드해 AI로 분석할 수 있습니다.'}
+              </p>
+            </div>
+            <div className="toolbar-left">
+              <button className="btn" onClick={() => documentsApi.exportReport()}>
+                AI 검토 보고서 다운로드
+              </button>
+              <button className="btn" disabled={collecting} onClick={handleCollect}>
+                {collecting ? '수집 중...' : '첨부파일 수집'}
+              </button>
+              {viewMode === 'current' && (
+                <select
+                  className="select-input"
+                  value={uploadDocumentType}
+                  onChange={(e) => setUploadDocumentType(e.target.value as DocumentTypeCode | '')}
+                >
+                  <option value="">문서종류: AI 자동 분류</option>
+                  {documentTypes.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                className="btn btn-primary"
+                disabled={uploading || viewMode !== 'current'}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? '업로드 중...' : '+ 문서 업로드'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.hwp,.jpg,.jpeg,.png"
+                style={{ display: 'none' }}
+                onChange={handleUploadFileChange}
+              />
+            </div>
+          </div>
 
-      {error && <p className="error-text">{error}</p>}
+          {error && <p className="error-text">{error}</p>}
 
-      <div className="card">
-        <table className="data-table">
+          <div className="card">
+            <table className="data-table">
           <thead>
             <tr>
               <th>파일명</th>
@@ -276,7 +349,7 @@ export function DocumentsPage() {
                   </td>
                   <td>{new Date(doc.createdAt).toLocaleString('ko-KR')}</td>
                   <td className="actions">
-                    {showUnassigned && (
+                    {viewMode === 'unassigned' && (
                       <button className="btn btn-sm" onClick={() => handleAssignToCurrentBusiness(doc)}>
                         현재 사업으로 지정
                       </button>
@@ -298,8 +371,10 @@ export function DocumentsPage() {
                 );
               })}
           </tbody>
-        </table>
-      </div>
+            </table>
+          </div>
+        </>
+      )}
 
       {reviewing && (
         <DocumentReviewModal
