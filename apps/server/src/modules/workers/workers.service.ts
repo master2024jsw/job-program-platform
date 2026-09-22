@@ -72,13 +72,16 @@ export class WorkersService {
     return this.workersRepository.save(worker);
   }
 
-  findAll(params: { keyword?: string; companyId?: string }): Promise<Worker[]> {
+  findAll(params: { keyword?: string; companyId?: string; businessId?: string }): Promise<Worker[]> {
     const where: Record<string, unknown> = {};
     if (params.keyword) {
       where.name = Like(`%${params.keyword}%`);
     }
     if (params.companyId) {
       where.companyId = params.companyId;
+    }
+    if (params.businessId) {
+      where.businessId = params.businessId;
     }
     return this.workersRepository.find({
       where: Object.keys(where).length ? where : undefined,
@@ -129,7 +132,7 @@ export class WorkersService {
     return buildExcelBuffer('근로자목록', EXCEL_COLUMNS, rows);
   }
 
-  async importFromExcel(buffer: Buffer): Promise<ImportSummary> {
+  async importFromExcel(buffer: Buffer, businessId?: string): Promise<ImportSummary> {
     const rows = await readExcelRows(buffer, HEADER_TO_KEY);
     const summary: ImportSummary = { created: 0, updated: 0, errors: [] };
 
@@ -179,6 +182,7 @@ export class WorkersService {
 
       try {
         const worker = this.workersRepository.create({
+          businessId,
           name: row.name,
           birthDate: row.birthDate,
           gender,

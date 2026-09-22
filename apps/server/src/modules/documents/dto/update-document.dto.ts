@@ -4,6 +4,10 @@ import { DocumentAnalysisStatus } from '@job-program/shared';
 export class UpdateDocumentDto {
   @IsOptional()
   @IsString()
+  businessId?: string;
+
+  @IsOptional()
+  @IsString()
   documentType?: string;
 
   @IsOptional()

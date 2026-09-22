@@ -8,6 +8,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { Company } from '../companies/company.entity';
+import { CompanyBusiness } from '../companies/company-business.entity';
 import { Worker } from '../workers/worker.entity';
 import { DocumentsService } from '../documents/documents.service';
 
@@ -28,6 +29,8 @@ export class MailCollectorService {
     private readonly documentsService: DocumentsService,
     @InjectRepository(Company)
     private readonly companiesRepository: Repository<Company>,
+    @InjectRepository(CompanyBusiness)
+    private readonly companyBusinessRepository: Repository<CompanyBusiness>,
     @InjectRepository(Worker)
     private readonly workersRepository: Repository<Worker>,
   ) {}
@@ -82,6 +85,7 @@ export class MailCollectorService {
 
     const senderEmail = parsed.from?.value?.[0]?.address ?? '';
     const { companyId, workerId } = await this.resolveSender(senderEmail);
+    const businessId = await this.resolveBusinessId(companyId, workerId);
 
     await fs.mkdir(uploadDir, { recursive: true });
 
@@ -98,6 +102,7 @@ export class MailCollectorService {
         mimeType: attachment.contentType,
         fileSize: attachment.size,
         senderEmail,
+        businessId,
         companyId,
         workerId,
       });
@@ -114,5 +119,21 @@ export class MailCollectorService {
     const worker = await this.workersRepository.findOne({ where: { email } });
     if (worker) return { workerId: worker.id };
     return {};
+  }
+
+  /**
+   * 매칭된 기업(근로자면 소속기업)의 CompanyBusiness를 조회해 사업이 정확히 1개면 그 businessId를,
+   * 0개·2개 이상이거나 매칭된 기업이 없으면 null(문서함 "미분류")을 반환한다.
+   */
+  private async resolveBusinessId(companyId?: string, workerId?: string): Promise<string | null> {
+    let targetCompanyId = companyId;
+    if (!targetCompanyId && workerId) {
+      const worker = await this.workersRepository.findOne({ where: { id: workerId } });
+      targetCompanyId = worker?.companyId ?? undefined;
+    }
+    if (!targetCompanyId) return null;
+
+    const companyBusinesses = await this.companyBusinessRepository.find({ where: { companyId: targetCompanyId } });
+    return companyBusinesses.length === 1 ? companyBusinesses[0].businessId : null;
   }
 }

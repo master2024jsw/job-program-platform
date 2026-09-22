@@ -1,9 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('subsidy_calculations')
 export class SubsidyCalculation {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'business_id', type: 'varchar', nullable: true })
+  @Index()
+  businessId?: string | null;
 
   @Column({ name: 'worker_id' })
   workerId!: string;

@@ -1,10 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business } from './business.entity';
 import { UserBusiness } from '../auth/user-business.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
-import { UserRole } from '@job-program/shared';
+import { UserRole, type SessionUser } from '@job-program/shared';
 
 @Injectable()
 export class BusinessesService {
@@ -50,6 +50,19 @@ export class BusinessesService {
 
   async isUserAssigned(userId: string, businessId: string): Promise<boolean> {
     return !!(await this.userBusinessRepository.findOne({ where: { userId, businessId } }));
+  }
+
+  /** 요청의 businessId에 사용자가 접근 가능한지 검증한다 (BusinessAccessGuard에서 사용). */
+  async assertAccess(user: SessionUser, businessId: string): Promise<void> {
+    const business = await this.findOne(businessId);
+    if (business.institutionId !== user.institutionId) {
+      throw new ForbiddenException('선택한 사업에 배정되지 않은 계정입니다.');
+    }
+    if (user.role === UserRole.ADMIN) return;
+    const assigned = await this.isUserAssigned(user.id, businessId);
+    if (!assigned) {
+      throw new ForbiddenException('선택한 사업에 배정되지 않은 계정입니다.');
+    }
   }
 
   async findOne(id: string): Promise<Business> {

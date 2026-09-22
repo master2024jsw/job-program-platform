@@ -1,6 +1,9 @@
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateDocumentDto {
+  @IsString()
+  businessId!: string;
+
   @IsOptional()
   @IsString()
   documentType?: string;

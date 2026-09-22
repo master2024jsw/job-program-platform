@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { SessionAuthGuard } from './session-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { BusinessesModule } from '../businesses/businesses.module';
+import { BusinessAccessGuard } from '../../common/business-access.guard';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Institution, User]), BusinessesModule],
@@ -16,6 +17,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
     AuthService,
     { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: BusinessAccessGuard },
   ],
   exports: [AuthService],
 })

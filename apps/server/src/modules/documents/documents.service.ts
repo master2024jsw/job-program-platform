@@ -51,6 +51,7 @@ export class DocumentsService {
 
   async create(file: Express.Multer.File, dto: CreateDocumentDto): Promise<Document> {
     const document = this.documentsRepository.create({
+      businessId: dto.businessId,
       fileName: file.originalname,
       filePath: file.path,
       mimeType: file.mimetype,
@@ -64,9 +65,15 @@ export class DocumentsService {
     return this.documentsRepository.save(document);
   }
 
-  findAll(filters?: { companyId?: string; workerId?: string; status?: DocumentAnalysisStatus }): Promise<Document[]> {
+  findAll(filters?: {
+    businessId?: string;
+    companyId?: string;
+    workerId?: string;
+    status?: DocumentAnalysisStatus;
+  }): Promise<Document[]> {
     return this.documentsRepository.find({
       where: {
+        ...(filters?.businessId && { businessId: filters.businessId }),
         ...(filters?.companyId && { companyId: filters.companyId }),
         ...(filters?.workerId && { workerId: filters.workerId }),
         ...(filters?.status && { status: filters.status }),
@@ -123,10 +130,12 @@ export class DocumentsService {
     mimeType: string;
     fileSize: number;
     senderEmail: string;
+    businessId?: string | null;
     companyId?: string | null;
     workerId?: string | null;
   }): Promise<Document> {
     const document = this.documentsRepository.create({
+      businessId: params.businessId,
       fileName: params.fileName,
       filePath: params.filePath,
       mimeType: params.mimeType,

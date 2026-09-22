@@ -18,19 +18,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import type { Response } from 'express';
-import type { ApiResponse } from '@job-program/shared';
+import type { ApiResponse, SessionUser } from '@job-program/shared';
 import { DocumentAnalysisStatus } from '@job-program/shared';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { AnalyzeDocumentDto } from './dto/analyze-document.dto';
 import { Document } from './document.entity';
+import { BusinessesService } from '../businesses/businesses.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 const uploadDir = path.join(process.cwd(), 'data', 'uploads');
 
 @Controller('documents')
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    private readonly documentsService: DocumentsService,
+    private readonly businessesService: BusinessesService,
+  ) {}
 
   @Post()
   @UseInterceptors(
@@ -50,21 +55,26 @@ export class DocumentsController {
   async create(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: CreateDocumentDto,
+    @CurrentUser() user: SessionUser,
   ): Promise<ApiResponse<Document>> {
     if (!file) {
       throw new NotFoundException('업로드된 파일이 없습니다.');
     }
+    // multipart 요청은 BusinessAccessGuard 실행 시점에 아직 body가 파싱되지 않아(Multer가 인터셉터로 동작)
+    // 전역 가드가 businessId를 볼 수 없다. 여기서 명시적으로 검증한다.
+    await this.businessesService.assertAccess(user, dto.businessId);
     const document = await this.documentsService.create(file, dto);
     return { success: true, data: document };
   }
 
   @Get()
   async findAll(
+    @Query('businessId') businessId?: string,
     @Query('companyId') companyId?: string,
     @Query('workerId') workerId?: string,
     @Query('status') status?: DocumentAnalysisStatus,
   ): Promise<ApiResponse<Document[]>> {
-    const documents = await this.documentsService.findAll({ companyId, workerId, status });
+    const documents = await this.documentsService.findAll({ businessId, companyId, workerId, status });
     return { success: true, data: documents };
   }
 

@@ -7,6 +7,10 @@ const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? unde
 export class UpdateWorkerDto {
   @IsOptional()
   @IsString()
+  businessId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(100)
   name?: string;
 

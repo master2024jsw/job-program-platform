@@ -1,10 +1,14 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DocumentAnalysisStatus } from '@job-program/shared';
 
 @Entity('documents')
 export class Document {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'business_id', type: 'varchar', nullable: true })
+  @Index()
+  businessId?: string | null;
 
   @Column({ name: 'file_name' })
   fileName!: string;

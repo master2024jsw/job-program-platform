@@ -1,10 +1,14 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { MailLogStatus } from '@job-program/shared';
 
 @Entity('mail_logs')
 export class MailLog {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'business_id', type: 'varchar', nullable: true })
+  @Index()
+  businessId?: string | null;
 
   @Column()
   to!: string;

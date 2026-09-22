@@ -10,20 +10,20 @@ export class SubsidyController {
   constructor(private readonly subsidyService: SubsidyService) {}
 
   @Get('settings')
-  async getSettings(): Promise<ApiResponse<SubsidySetting>> {
-    const settings = await this.subsidyService.getSettings();
+  async getSettings(@Query('businessId') businessId: string): Promise<ApiResponse<SubsidySetting>> {
+    const settings = await this.subsidyService.getSettings(businessId);
     return { success: true, data: settings };
   }
 
   @Patch('settings')
   async updateSettings(@Body() dto: UpdateSubsidySettingsDto): Promise<ApiResponse<SubsidySetting>> {
-    const settings = await this.subsidyService.updateSettings(dto.eligibilityMonths);
+    const settings = await this.subsidyService.updateSettings(dto.businessId, dto.eligibilityMonths);
     return { success: true, data: settings };
   }
 
   @Get('eligibility')
-  async listEligibility(): Promise<ApiResponse<SubsidyEligibilityRow[]>> {
-    const rows = await this.subsidyService.listEligibility();
+  async listEligibility(@Query('businessId') businessId: string): Promise<ApiResponse<SubsidyEligibilityRow[]>> {
+    const rows = await this.subsidyService.listEligibility(businessId);
     return { success: true, data: rows };
   }
 
@@ -34,8 +34,11 @@ export class SubsidyController {
   }
 
   @Get('calculations')
-  async listCalculations(@Query('workerId') workerId?: string): Promise<ApiResponse<SubsidyCalculationRow[]>> {
-    const rows = await this.subsidyService.listCalculations(workerId);
+  async listCalculations(
+    @Query('businessId') businessId?: string,
+    @Query('workerId') workerId?: string,
+  ): Promise<ApiResponse<SubsidyCalculationRow[]>> {
+    const rows = await this.subsidyService.listCalculations({ businessId, workerId });
     return { success: true, data: rows };
   }
 

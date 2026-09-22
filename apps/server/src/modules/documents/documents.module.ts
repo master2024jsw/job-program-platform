@@ -9,9 +9,10 @@ import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
 import { HwpToPdfConverter } from './converters/hwp-to-pdf.converter';
 import { ImageToPdfConverter } from './converters/image-to-pdf.converter';
+import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Document, Company, Worker])],
+  imports: [TypeOrmModule.forFeature([Document, Company, Worker]), BusinessesModule],
   controllers: [DocumentsController],
   providers: [DocumentsService, GeminiService, FileConversionService, HwpToPdfConverter, ImageToPdfConverter],
   exports: [DocumentsService, FileConversionService],

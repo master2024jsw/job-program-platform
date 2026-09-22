@@ -106,7 +106,14 @@ export class MailService {
 
     const results: MailLog[] = [];
     for (const to of recipients) {
-      const log = this.mailLogsRepository.create({ to, subject, body, templateId, status: MailLogStatus.SUCCESS });
+      const log = this.mailLogsRepository.create({
+        businessId: dto.businessId,
+        to,
+        subject,
+        body,
+        templateId,
+        status: MailLogStatus.SUCCESS,
+      });
       try {
         await this.getTransporter().sendMail({ from, to, subject, html: body });
       } catch (error) {
@@ -119,7 +126,11 @@ export class MailService {
     return results;
   }
 
-  findLogs(): Promise<MailLog[]> {
-    return this.mailLogsRepository.find({ order: { createdAt: 'DESC' }, take: 200 });
+  findLogs(businessId?: string): Promise<MailLog[]> {
+    return this.mailLogsRepository.find({
+      where: businessId ? { businessId } : {},
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
   }
 }

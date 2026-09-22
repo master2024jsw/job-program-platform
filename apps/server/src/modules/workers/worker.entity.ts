@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { ContractType, Gender, WorkerStatus } from '@job-program/shared';
 import { Company } from '../companies/company.entity';
 
@@ -6,6 +6,10 @@ import { Company } from '../companies/company.entity';
 export class Worker {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'business_id', type: 'varchar', nullable: true })
+  @Index()
+  businessId?: string | null;
 
   @Column()
   name!: string;

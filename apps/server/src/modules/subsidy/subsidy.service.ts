@@ -1,12 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Worker } from '../workers/worker.entity';
 import { SubsidySetting } from './subsidy-setting.entity';
 import { SubsidyCalculation } from './subsidy-calculation.entity';
 import { CreateSubsidyCalculationDto } from './dto/create-subsidy-calculation.dto';
 
-const SETTINGS_ID = 'default';
 const DEFAULT_ELIGIBILITY_MONTHS = 3;
 /** salary(월급)를 일할 계산할 때 사용하는 월 평균 일수 기준 */
 const DAYS_PER_MONTH = 30;
@@ -76,22 +75,37 @@ export class SubsidyService {
     private readonly calculationsRepository: Repository<SubsidyCalculation>,
   ) {}
 
-  async getSettings(): Promise<SubsidySetting> {
-    const existing = await this.settingsRepository.findOne({ where: { id: SETTINGS_ID } });
+  /**
+   * 사업별 1행. 해당 사업 행이 없으면, 스키마 변경 전 남아있던 싱글턴(business_id=NULL) 행의
+   * 값을 이어받거나(최초 1회) 기본값(3개월)으로 새로 만든다.
+   */
+  async getSettings(businessId: string): Promise<SubsidySetting> {
+    const existing = await this.settingsRepository.findOne({ where: { businessId } });
     if (existing) return existing;
-    const created = this.settingsRepository.create({ id: SETTINGS_ID, eligibilityMonths: DEFAULT_ELIGIBILITY_MONTHS });
+
+    const legacy = await this.settingsRepository.findOne({ where: { businessId: IsNull() } });
+    if (legacy) {
+      legacy.businessId = businessId;
+      return this.settingsRepository.save(legacy);
+    }
+
+    const created = this.settingsRepository.create({ businessId, eligibilityMonths: DEFAULT_ELIGIBILITY_MONTHS });
     return this.settingsRepository.save(created);
   }
 
-  async updateSettings(eligibilityMonths: number): Promise<SubsidySetting> {
-    const settings = await this.getSettings();
+  async updateSettings(businessId: string, eligibilityMonths: number): Promise<SubsidySetting> {
+    const settings = await this.getSettings(businessId);
     settings.eligibilityMonths = eligibilityMonths;
     return this.settingsRepository.save(settings);
   }
 
-  async listEligibility(): Promise<SubsidyEligibilityRow[]> {
-    const settings = await this.getSettings();
-    const workers = await this.workersRepository.find({ relations: ['company'], order: { hireDate: 'ASC' } });
+  async listEligibility(businessId: string): Promise<SubsidyEligibilityRow[]> {
+    const settings = await this.getSettings(businessId);
+    const workers = await this.workersRepository.find({
+      where: { businessId },
+      relations: ['company'],
+      order: { hireDate: 'ASC' },
+    });
     const today = todayLocalDateString();
 
     return workers
@@ -149,6 +163,7 @@ export class SubsidyService {
     }
 
     const calculation = this.calculationsRepository.create({
+      businessId: dto.businessId,
       workerId: dto.workerId,
       periodLabel: dto.periodLabel,
       workedDays: dto.workedDays,
@@ -176,9 +191,13 @@ export class SubsidyService {
     };
   }
 
-  async listCalculations(workerId?: string): Promise<SubsidyCalculationRow[]> {
+  async listCalculations(params: { businessId?: string; workerId?: string }): Promise<SubsidyCalculationRow[]> {
+    const where: Record<string, unknown> = {};
+    if (params.businessId) where.businessId = params.businessId;
+    if (params.workerId) where.workerId = params.workerId;
+
     const calculations = await this.calculationsRepository.find({
-      where: workerId ? { workerId } : {},
+      where,
       order: { createdAt: 'DESC' },
     });
     if (calculations.length === 0) return [];

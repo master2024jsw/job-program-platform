@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import type { ApiResponse } from '@job-program/shared';
 import { MailService } from './mail.service';
 import { SendMailDto } from './dto/send-mail.dto';
@@ -15,8 +15,8 @@ export class MailController {
   }
 
   @Get('logs')
-  async findLogs(): Promise<ApiResponse<MailLog[]>> {
-    const logs = await this.mailService.findLogs();
+  async findLogs(@Query('businessId') businessId?: string): Promise<ApiResponse<MailLog[]>> {
+    const logs = await this.mailService.findLogs(businessId);
     return { success: true, data: logs };
   }
 }

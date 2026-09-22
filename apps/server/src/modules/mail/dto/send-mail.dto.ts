@@ -1,6 +1,9 @@
 import { IsArray, IsEmail, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class SendMailDto {
+  @IsString()
+  businessId!: string;
+
   @IsOptional()
   @IsArray()
   @IsEmail({}, { each: true })

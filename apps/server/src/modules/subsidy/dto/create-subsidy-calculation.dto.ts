@@ -1,6 +1,9 @@
 import { IsInt, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class CreateSubsidyCalculationDto {
+  @IsString()
+  businessId!: string;
+
   @IsUUID()
   workerId!: string;
 

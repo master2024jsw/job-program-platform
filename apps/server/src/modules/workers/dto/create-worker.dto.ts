@@ -6,6 +6,9 @@ const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? unde
 
 export class CreateWorkerDto {
   @IsString()
+  businessId!: string;
+
+  @IsString()
   @MaxLength(100)
   name!: string;
 
