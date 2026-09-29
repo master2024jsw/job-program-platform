@@ -51,4 +51,16 @@ export class UpsertCompanyBusinessDto {
   @IsOptional()
   @IsBoolean()
   participantApplied?: boolean;
+
+  @IsOptional()
+  @IsString()
+  recruitJobTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  recruitJobCode?: string;
+
+  @IsOptional()
+  @IsString()
+  jobEligibility?: string;
 }

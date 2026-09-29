@@ -13,6 +13,7 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
 import { AuthModule } from './modules/auth/auth.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
 import { RequiredDocumentsModule } from './modules/required-documents/required-documents.module';
+import { ValidationModule } from './modules/validation/validation.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RequiredDocumentsModule } from './modules/required-documents/required-d
     SubsidyModule,
     AnnouncementsModule,
     RequiredDocumentsModule,
+    ValidationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

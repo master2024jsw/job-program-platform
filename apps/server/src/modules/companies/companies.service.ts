@@ -41,6 +41,29 @@ const EXCEL_COLUMNS: ExcelColumn[] = [
 
 const HEADER_TO_KEY = Object.fromEntries(EXCEL_COLUMNS.map((c) => [c.header, c.key]));
 
+/** 관리대장 표기 토큰 (U+25CB). */
+const CIRCLE = '○';
+
+/** '2026년 참여기업 관리' 대장 시트(예시파일VER.3)와 동일한 헤더·순서. */
+const LEDGER_COLUMNS: ExcelColumn[] = [
+  { header: '순번', key: 'seq', width: 6 },
+  { header: '사업자등록번호', key: 'businessRegistrationNumber', width: 16 },
+  { header: '기업명', key: 'name', width: 22 },
+  { header: '연락처', key: 'phone', width: 16 },
+  { header: '이메일', key: 'email', width: 24 },
+  { header: '협약 발송', key: 'agreementSent', width: 10 },
+  { header: '협약일', key: 'agreementDate', width: 12 },
+  { header: '협약 체결', key: 'agreementConcluded', width: 10 },
+  { header: '사업계획등록', key: 'businessPlanRegistered', width: 12 },
+  { header: '참여자\n서류 안내', key: 'documentGuideSent', width: 12 },
+  { header: '일반형', key: 'generalType', width: 8 },
+  { header: '세대통합형', key: 'intergenerationalType', width: 10 },
+  { header: '참여자 \n신청(0명)', key: 'participantApplied', width: 12 },
+  { header: '예정\n인원', key: 'plannedHeadcount', width: 8 },
+  { header: '모집직종', key: 'recruitJob', width: 20 },
+  { header: '직종판정', key: 'jobEligibility', width: 12 },
+];
+
 export interface DedupeGroup {
   /** 그룹을 묶은 기준: 사업자등록번호 일치, 또는(사업자번호 없는 기업에 한해) 기업명 일치 */
   matchType: 'businessRegistrationNumber' | 'name';
@@ -152,6 +175,9 @@ export class CompaniesService {
               businessPlanRegistered: cb.businessPlanRegistered,
               documentGuideSent: cb.documentGuideSent,
               participantApplied: cb.participantApplied,
+              recruitJobTitle: cb.recruitJobTitle ?? null,
+              recruitJobCode: cb.recruitJobCode ?? null,
+              jobEligibility: cb.jobEligibility ?? null,
               createdAt: cb.createdAt.toISOString(),
               updatedAt: cb.updatedAt.toISOString(),
             }
@@ -242,6 +268,46 @@ export class CompaniesService {
       };
     });
     return buildExcelBuffer('기업목록', EXCEL_COLUMNS, rows);
+  }
+
+  /**
+   * '2026년 참여기업 관리' 대장 형식으로 내보낸다 (예시파일VER.3 시트와 동일 헤더).
+   * 표기 토큰은 '○'(U+25CB), 일반형/세대통합형은 인원 count>0이면 '○'.
+   * 협약·서류안내·참여자신청은 서류에서 나오는 값이 아니라 담당자/시스템 입력값이다.
+   */
+  async exportBusinessLedger(businessId: string): Promise<Buffer> {
+    const companies = await this.companiesRepository.find({ order: { createdAt: 'ASC' } });
+    const cbs = await this.companyBusinessRepository.find({ where: { businessId } });
+    const cbMap = new Map(cbs.map((cb) => [cb.companyId, cb]));
+    // 대장에는 해당 사업에 참여(CompanyBusiness 존재)한 기업만 싣는다.
+    const target = companies.filter((c) => cbMap.has(c.id));
+
+    const mark = (v: boolean | null | undefined) => (v ? CIRCLE : '');
+    const rows = target.map((c, idx) => {
+      const cb = cbMap.get(c.id);
+      const jobTitle = cb?.recruitJobTitle ?? null;
+      const jobCode = cb?.recruitJobCode ?? null;
+      const recruitJob = jobTitle && jobCode ? `${jobTitle}(${jobCode})` : jobTitle || jobCode || '';
+      return {
+        seq: idx + 1,
+        businessRegistrationNumber: c.businessRegistrationNumber ?? '',
+        name: c.name,
+        phone: c.phone ?? '',
+        email: c.email ?? '',
+        agreementSent: mark(!!cb?.agreementSentDate),
+        agreementDate: cb?.agreementDate ?? '',
+        agreementConcluded: mark(cb?.agreementConcluded),
+        businessPlanRegistered: mark(cb?.businessPlanRegistered),
+        documentGuideSent: mark(cb?.documentGuideSent),
+        generalType: mark((cb?.generalTypeHeadcount ?? 0) > 0),
+        intergenerationalType: mark((cb?.intergenerationalTypeHeadcount ?? 0) > 0),
+        participantApplied: mark(cb?.participantApplied),
+        plannedHeadcount: cb?.plannedHeadcount ?? '',
+        recruitJob,
+        jobEligibility: cb?.jobEligibility ?? '',
+      };
+    });
+    return buildExcelBuffer('2026년 참여기업 관리', LEDGER_COLUMNS, rows);
   }
 
   async importFromExcel(buffer: Buffer, businessId?: string): Promise<ImportSummary> {

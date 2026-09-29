@@ -7,7 +7,7 @@
       "stage": "COMPANY_ELIGIBILITY",
       "label": "기업 적격 확인",
       "target": "COMPANY",
-      "documents": ["COMPANY_APPLICATION"]
+      "documents": ["COMPANY_APPLICATION", "OPERATION_PLAN", "WORKPLACE_INSURANCE", "BUSINESS_REGISTRATION"]
     },
     {
       "stage": "PARTICIPANT_ELIGIBILITY",

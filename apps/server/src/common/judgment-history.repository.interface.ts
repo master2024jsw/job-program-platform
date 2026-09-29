@@ -1,18 +1,22 @@
-import type { DomainValidationResult } from './domain-validation-engine.interface';
+import type { CompanyValidationStatus, RuleResult } from '@job-program/shared';
 
 /**
- * DomainValidationEngine의 판정 결과 이력을 저장하는 자리.
- * 이번 배치에서는 타입만 선언하고 구현·호출하지 않는다 (4·5·6단계 지시서에서 구현 예정).
+ * 검증 판정 이력 저장소 (비식별).
+ * AI 판정과 사람 정정을 각각 한 건씩 남긴다: 사람 정정은 source=HUMAN, corrected=true.
  */
 export interface JudgmentHistoryEntry {
   id: string;
+  businessId: string | null;
   targetType: string;
   targetId: string;
-  result: DomainValidationResult[];
+  status: CompanyValidationStatus;
+  result: RuleResult[];
+  source: 'AI' | 'HUMAN';
+  corrected: boolean;
   judgedAt: Date;
 }
 
 export interface JudgmentHistoryRepository {
-  save(entry: Omit<JudgmentHistoryEntry, 'id' | 'judgedAt'>): Promise<JudgmentHistoryEntry>;
+  record(entry: Omit<JudgmentHistoryEntry, 'id' | 'judgedAt'>): Promise<JudgmentHistoryEntry>;
   findByTarget(targetType: string, targetId: string): Promise<JudgmentHistoryEntry[]>;
 }

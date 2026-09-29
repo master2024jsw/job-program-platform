@@ -34,6 +34,9 @@ export interface CompanyBusiness {
   businessPlanRegistered: boolean;
   documentGuideSent: boolean;
   participantApplied: boolean;
+  recruitJobTitle?: string | null;
+  recruitJobCode?: string | null;
+  jobEligibility?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -11,9 +11,15 @@ import { HwpToPdfConverter } from './converters/hwp-to-pdf.converter';
 import { ImageToPdfConverter } from './converters/image-to-pdf.converter';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { RequiredDocumentsModule } from '../required-documents/required-documents.module';
+import { ValidationModule } from '../validation/validation.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Document, Company, Worker]), BusinessesModule, RequiredDocumentsModule],
+  imports: [
+    TypeOrmModule.forFeature([Document, Company, Worker]),
+    BusinessesModule,
+    RequiredDocumentsModule,
+    ValidationModule,
+  ],
   controllers: [DocumentsController],
   providers: [DocumentsService, GeminiService, FileConversionService, HwpToPdfConverter, ImageToPdfConverter],
   exports: [DocumentsService, FileConversionService],

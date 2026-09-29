@@ -2,8 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
-import { DOCUMENT_TYPE_CODES, DocumentAnalysisStatus } from '@job-program/shared';
+import { DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, type DocumentTypeCode } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
+import { maskDeep } from '../../common/masking.util';
+import { ValidationService } from '../validation/validation.service';
 import { Document } from './document.entity';
 import { Company } from '../companies/company.entity';
 import { Worker } from '../workers/worker.entity';
@@ -47,7 +49,16 @@ export class DocumentsService {
     private readonly workersRepository: Repository<Worker>,
     private readonly geminiService: GeminiService,
     private readonly fileConversionService: FileConversionService,
+    private readonly validationService: ValidationService,
   ) {}
+
+  /** 기업 적격(4단계) 검증 대상 서류유형 — 분석 완료 시 기업 신청 건 검증을 자동 실행한다. */
+  private static readonly COMPANY_DOC_TYPES: DocumentTypeCode[] = [
+    'COMPANY_APPLICATION',
+    'OPERATION_PLAN',
+    'WORKPLACE_INSURANCE',
+    'BUSINESS_REGISTRATION',
+  ];
 
   async create(file: Express.Multer.File, dto: CreateDocumentDto): Promise<Document> {
     const document = this.documentsRepository.create({
@@ -99,11 +110,12 @@ export class DocumentsService {
 
     try {
       const pdfPath = await this.ensurePdf(document);
-      const extractedData = await this.geminiService.extractFromPdf(pdfPath, dto.prompt);
-      document.extractedData = extractedData;
+      const rawExtracted = await this.geminiService.extractFromPdf(pdfPath, dto.prompt);
+      // 외부 AI가 돌려준 추출값을 저장하기 전에 주민번호를 마스킹한다(DB에 평문 미저장, 보안 안내문 준수).
+      document.extractedData = maskDeep(rawExtracted);
       // 업로드 시 실무자가 직접 문서종류를 지정했으면 AI 판단으로 덮어쓰지 않는다.
       if (!document.documentType) {
-        const aiDocumentType = extractedData.documentType;
+        const aiDocumentType = rawExtracted.documentType;
         if (typeof aiDocumentType === 'string' && (DOCUMENT_TYPE_CODES as readonly string[]).includes(aiDocumentType)) {
           document.documentType = aiDocumentType;
         }
@@ -115,7 +127,28 @@ export class DocumentsService {
       document.errorMessage = error instanceof Error ? error.message : String(error);
     }
 
-    return this.documentsRepository.save(document);
+    const saved = await this.documentsRepository.save(document);
+    await this.runCompanyValidationIfApplicable(saved);
+    return saved;
+  }
+
+  /**
+   * 분석 완료된 문서가 기업 적격 서류이고 기업·사업에 연결돼 있으면 기업 신청 건 검증을 실행한다.
+   * 검증 실패가 문서 분석 자체를 깨뜨리지 않도록 방어적으로 처리한다.
+   */
+  private async runCompanyValidationIfApplicable(document: Document): Promise<void> {
+    if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
+    if (!document.businessId || !document.companyId) return;
+    if (!document.documentType || !DocumentsService.COMPANY_DOC_TYPES.includes(document.documentType as DocumentTypeCode)) {
+      return;
+    }
+    try {
+      await this.validationService.validateCompany(document.businessId, document.companyId, true);
+    } catch (error) {
+      // 검증 실패는 로그만 남기고 문서 분석 결과는 유지한다.
+      // eslint-disable-next-line no-console
+      console.error(`기업 신청 검증 실패(companyId=${document.companyId}): ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   /** HWP/이미지 등 비-PDF 원본을 PDF로 변환해서 경로를 돌려준다. 이미 PDF면 원본 경로 그대로. */

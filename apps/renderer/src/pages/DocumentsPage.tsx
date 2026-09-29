@@ -9,6 +9,7 @@ import {
   type Worker,
 } from '@job-program/shared';
 import { documentsApi } from '../api/documents';
+import { downloadFile } from '../api/client';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
 import { mailApi, mailTemplatesApi } from '../api/mail';
@@ -16,8 +17,9 @@ import { requiredDocumentsApi } from '../api/required-documents';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { RequiredDocumentsChecklist } from '../components/RequiredDocumentsChecklist';
+import { CompanyValidationPanel } from '../components/CompanyValidationPanel';
 
-type ViewMode = 'current' | 'unassigned' | 'checklist';
+type ViewMode = 'current' | 'unassigned' | 'checklist' | 'validation';
 
 const STATUS_LABEL: Record<DocumentAnalysisStatus, string> = {
   [DocumentAnalysisStatus.PENDING]: '대기',
@@ -54,6 +56,7 @@ export function DocumentsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('current');
   const [checklistCompanyId, setChecklistCompanyId] = useState('');
   const [checklistWorkerId, setChecklistWorkerId] = useState('');
+  const [validationCompanyId, setValidationCompanyId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const companyMap = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
@@ -69,7 +72,7 @@ export function DocumentsPage() {
   };
 
   const load = async () => {
-    if (viewMode === 'checklist') return;
+    if (viewMode === 'checklist' || viewMode === 'validation') return;
     setLoading(true);
     setError(null);
     try {
@@ -189,9 +192,54 @@ export function DocumentsPage() {
         >
           필수서류 체크리스트
         </button>
+        <button
+          className={`btn btn-sm ${viewMode === 'validation' ? 'btn-primary' : ''}`}
+          onClick={() => setViewMode('validation')}
+        >
+          기업 신청 검증
+        </button>
       </div>
 
-      {viewMode === 'checklist' ? (
+      {viewMode === 'validation' ? (
+        <div>
+          <p className="hint-text">기업을 선택하면 해당 기업 신청 건의 서류 대조·검증 결과를 확인하고 승인할 수 있습니다.</p>
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <select
+                className="select-input"
+                value={validationCompanyId}
+                onChange={(e) => setValidationCompanyId(e.target.value)}
+              >
+                <option value="">기업 선택</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              className="btn"
+              onClick={() =>
+                downloadFile(
+                  `/companies/ledger/export?businessId=${encodeURIComponent(currentBusinessId ?? '')}`,
+                  'company-ledger.xlsx',
+                ).catch((e) => window.alert(e instanceof Error ? e.message : '내보내기에 실패했습니다.'))
+              }
+            >
+              참여기업 관리대장 내보내기
+            </button>
+          </div>
+          {!validationCompanyId && <p className="hint-text">기업을 선택하세요.</p>}
+          {currentBusinessId && validationCompanyId && (
+            <CompanyValidationPanel
+              key={`${currentBusinessId}:${validationCompanyId}`}
+              businessId={currentBusinessId}
+              companyId={validationCompanyId}
+            />
+          )}
+        </div>
+      ) : viewMode === 'checklist' ? (
         <div>
           <p className="hint-text">기업 또는 근로자를 선택하면 해당 대상에 적용되는 단계별 필수서류 제출 여부를 보여줍니다.</p>
           <div className="toolbar">

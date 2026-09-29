@@ -39,6 +39,17 @@ export class CompaniesController {
     res.send(buffer);
   }
 
+  /** 4단계 기업신청 대장('2026년 참여기업 관리' 시트 형식) 내보내기. */
+  @Get('ledger/export')
+  async exportLedger(@Query('businessId') businessId: string, @Res() res: Response): Promise<void> {
+    const buffer = await this.companiesService.exportBusinessLedger(businessId);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="company-ledger.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   @Post('import')
   @UseInterceptors(FileInterceptor('file'))
   async import(

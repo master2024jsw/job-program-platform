@@ -1,13 +1,15 @@
+import type { DocumentTypeCode, RuleResult } from '@job-program/shared';
+
 /**
- * 4·5·6단계(기업신청·근로자신청·지원금신청 검토) 지시서에서 구현 예정인 도메인 검증 엔진의 자리.
- * 이번 배치에서는 타입만 선언하고 구현·호출하지 않는다.
+ * 도메인 검증 엔진 (논문 01문서 1.1절 규칙 4유형).
+ * 4단계(기업신청)에서 crossCheck/riskFlag/calcRule 을 구현한다.
+ * exceptionRule 은 5·6단계에서 확장한다.
+ *
+ * 입력: 한 대상(기업)의 서류유형별 추출값(extractedData) 묶음.
+ * 출력: 규칙별 판정 결과.
  */
-export interface DomainValidationResult {
-  field: string;
-  passed: boolean;
-  message?: string;
-}
+export type ExtractedByDocumentType = Partial<Record<DocumentTypeCode, Record<string, unknown>>>;
 
 export interface DomainValidationEngine {
-  validate(input: Record<string, unknown>): Promise<DomainValidationResult[]>;
+  validate(input: ExtractedByDocumentType): RuleResult[];
 }

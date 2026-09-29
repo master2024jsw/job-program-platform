@@ -1,0 +1,2490 @@
+{
+  "source": "고용노동부 직종분류표 제외여부 (2026 시니어인턴십 R-104 조회 소스)",
+  "judgmentValues": {
+    "ELIGIBLE": "가능",
+    "EXCLUDED": "제외",
+    "NEEDS_REVIEW": "확인필요"
+  },
+  "items": [
+    {
+      "code": "0111",
+      "jobName": "의회 의원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0112",
+      "jobName": "고위 공무원 및 정당·특수 단체 임원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0113",
+      "jobName": "기업 대표 및 기업 고위 임원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0121",
+      "jobName": "정부 행정 관리자",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0122",
+      "jobName": "경영 지원 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0123",
+      "jobName": "마케팅 및 광고·홍보 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0124",
+      "jobName": "금융 및 보험 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0131",
+      "jobName": "연구 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0132",
+      "jobName": "교육 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0133",
+      "jobName": "법률·경찰·소방 및 교도 관리자",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0134",
+      "jobName": "보건 의료 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0135",
+      "jobName": "사회복지 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0136",
+      "jobName": "문화·예술 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0137",
+      "jobName": "정보 통신 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0139",
+      "jobName": "기타 전문 서비스 관리자",
+      "judgment": "NEEDS_REVIEW",
+      "detail": "①업무 관련 자격증 ②근무장소당 1인 배치 ③정상 근로시간(교대·야간근무 금지) 3요건 모두 충족 시 허용"
+    },
+    {
+      "code": "0141",
+      "jobName": "숙박·여행·오락 및 스포츠 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0142",
+      "jobName": "음식 서비스 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0143",
+      "jobName": "환경·청소 및 경비 관련 관리자",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0151",
+      "jobName": "영업 및 판매 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0152",
+      "jobName": "운송 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0159",
+      "jobName": "기타 판매 및 고객 서비스 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0161",
+      "jobName": "건설 및 광업 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0162",
+      "jobName": "전기·가스 및 수도 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0163",
+      "jobName": "제품 생산 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0169",
+      "jobName": "기타 건설·전기 및 생산 관련 관리자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0211",
+      "jobName": "정부 행정 전문가",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0212",
+      "jobName": "행정사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0221",
+      "jobName": "경영 및 진단 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0222",
+      "jobName": "인사 및 노사 관련 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0231",
+      "jobName": "회계사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0232",
+      "jobName": "세무사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0233",
+      "jobName": "관세사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0234",
+      "jobName": "감정 관련 전문가",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0241",
+      "jobName": "광고 및 홍보 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0242",
+      "jobName": "조사 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0243",
+      "jobName": "상품 기획 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0244",
+      "jobName": "행사·전시 및 회의 기획자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0251",
+      "jobName": "조세 행정 사무원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0252",
+      "jobName": "관세 행정 사무원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0253",
+      "jobName": "병무 행정 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0259",
+      "jobName": "기타 정부 행정 사무원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "0261",
+      "jobName": "경영 기획 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0262",
+      "jobName": "영업 및 마케팅 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0263",
+      "jobName": "인사 및 노무 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0264",
+      "jobName": "교육 및 훈련 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0265",
+      "jobName": "총무 사무원 및 대학 행정조교",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0266",
+      "jobName": "감사 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0271",
+      "jobName": "회계 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0272",
+      "jobName": "경리 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0281",
+      "jobName": "무역 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0282",
+      "jobName": "도로 및 철도운송 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0283",
+      "jobName": "수상 및 항공운송 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0284",
+      "jobName": "자재관리 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0285",
+      "jobName": "생산 및 품질관리 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0289",
+      "jobName": "기타 운송 및 무역 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0291",
+      "jobName": "안내·접수원 및 전화교환원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0292",
+      "jobName": "고객 상담 및 모니터 요원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0293",
+      "jobName": "통계·데이터 관련 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0294",
+      "jobName": "비서",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0295",
+      "jobName": "전산 자료 입력원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0296",
+      "jobName": "속기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0297",
+      "jobName": "자원봉사 관리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0299",
+      "jobName": "기타 사무 지원 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0311",
+      "jobName": "투자 및 신용 분석가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0312",
+      "jobName": "자산 운용가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0313",
+      "jobName": "금융 및 보험 상품 개발자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0314",
+      "jobName": "증권 및 외환 딜러",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0315",
+      "jobName": "손해 사정사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0319",
+      "jobName": "기타 금융 및 보험 관련 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0321",
+      "jobName": "은행 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0322",
+      "jobName": "증권 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0323",
+      "jobName": "보험 심사원 및 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0324",
+      "jobName": "출납 창구 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0325",
+      "jobName": "수금원 및 신용 추심원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0329",
+      "jobName": "기타 금융 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0331",
+      "jobName": "대출 및 신용카드 모집인",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "0332",
+      "jobName": "보험 모집인 및 투자 권유 대행인",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1101",
+      "jobName": "인문과학 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1102",
+      "jobName": "사회과학 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1211",
+      "jobName": "자연과학 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1212",
+      "jobName": "자연과학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1221",
+      "jobName": "생명과학 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1222",
+      "jobName": "생명과학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1223",
+      "jobName": "농림어업 관련 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1311",
+      "jobName": "컴퓨터 하드웨어 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1312",
+      "jobName": "통신공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1320",
+      "jobName": "컴퓨터시스템 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1331",
+      "jobName": "시스템 소프트웨어 개발자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1332",
+      "jobName": "응용 소프트웨어 개발자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1333",
+      "jobName": "웹 개발자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1339",
+      "jobName": "기타 컴퓨터 시스템 및 소프트웨어 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1341",
+      "jobName": "네트워크 시스템 개발자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1342",
+      "jobName": "정보 보안 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1349",
+      "jobName": "기타 네트워크 및 정보 보안 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1351",
+      "jobName": "데이터 시스템 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1352",
+      "jobName": "데이터 분석가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1361",
+      "jobName": "정보 시스템 운영자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1362",
+      "jobName": "웹 운영자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1370",
+      "jobName": "통신 및 방송 송출 장비 기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1401",
+      "jobName": "건축가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1402",
+      "jobName": "건축공학 기술자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1403",
+      "jobName": "토목공학 기술자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1404",
+      "jobName": "조경 기술자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1405",
+      "jobName": "도시 및 교통 관련 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1406",
+      "jobName": "측량 및 공간정보 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1407",
+      "jobName": "건설자재 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1511",
+      "jobName": "기계공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1512",
+      "jobName": "로봇공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1513",
+      "jobName": "기계 및 로봇공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1521",
+      "jobName": "금속·재료공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1522",
+      "jobName": "금속 및 재료공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1531",
+      "jobName": "전기공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1532",
+      "jobName": "반도체공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1533",
+      "jobName": "전자공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1534",
+      "jobName": "전기 및 전자공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1541",
+      "jobName": "화학공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1542",
+      "jobName": "화학공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1551",
+      "jobName": "가스·에너지 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1552",
+      "jobName": "가스 및 에너지 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1553",
+      "jobName": "신재생에너지 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1554",
+      "jobName": "신재생에너지 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1555",
+      "jobName": "환경공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1556",
+      "jobName": "환경공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1557",
+      "jobName": "산업보건 및 산업환경 관리 기술자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1561",
+      "jobName": "섬유공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1562",
+      "jobName": "섬유공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1571",
+      "jobName": "식품공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1572",
+      "jobName": "식품공학 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1581",
+      "jobName": "소방공학 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1582",
+      "jobName": "방재 기술자 및 연구원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1583",
+      "jobName": "소방·방재 및 산업안전 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1584",
+      "jobName": "산업안전 및 산업위험 관리 기술자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1591",
+      "jobName": "제도사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "1599",
+      "jobName": "기타 공학 관련 기술자 및 시험원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2111",
+      "jobName": "대학 교수",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2112",
+      "jobName": "대학 강사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2121",
+      "jobName": "중·고등학교 교사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2122",
+      "jobName": "초등학교 교사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2123",
+      "jobName": "특수교육 교사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2129",
+      "jobName": "기타 교사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2130",
+      "jobName": "유치원 교사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2141",
+      "jobName": "외국어 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2142",
+      "jobName": "문리 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2143",
+      "jobName": "정보통신기술 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2144",
+      "jobName": "기술 및 기능계 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2145",
+      "jobName": "간호조무 및 요양보호 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2146",
+      "jobName": "자동차 운전 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2147",
+      "jobName": "예능 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2148",
+      "jobName": "학습·교구 관련 방문강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2149",
+      "jobName": "기타 문리·기술 및 예능 강사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2151",
+      "jobName": "장학관·연구관 및 교육 관련 전문가",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2152",
+      "jobName": "대학 교육 조교",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2153",
+      "jobName": "교사보조 및 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2159",
+      "jobName": "기타 교사보조 및 아동돌봄 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2211",
+      "jobName": "판사 및 검사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2212",
+      "jobName": "변호사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2213",
+      "jobName": "법무사 및 집행관",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2214",
+      "jobName": "변리사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2219",
+      "jobName": "기타 법률 전문가",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2220",
+      "jobName": "법률 관련 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2311",
+      "jobName": "사회복지사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2312",
+      "jobName": "상담 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2313",
+      "jobName": "청소년 지도사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2314",
+      "jobName": "직업 관련 상담사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2315",
+      "jobName": "시민사회 활동가",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2321",
+      "jobName": "보육교사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2322",
+      "jobName": "보육 관련 시설 돌봄 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2329",
+      "jobName": "기타 사회복지 전문가 및 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "2331",
+      "jobName": "성직자",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2339",
+      "jobName": "기타 종교 관련 종사원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2401",
+      "jobName": "경찰관 및 수사관",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2402",
+      "jobName": "소방관",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2403",
+      "jobName": "소년원 학교 교사 및 교도관",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2501",
+      "jobName": "영관급 이상 장교",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2502",
+      "jobName": "위관급 장교",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2503",
+      "jobName": "준사관",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2504",
+      "jobName": "부사관",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "2509",
+      "jobName": "기타 군인",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3011",
+      "jobName": "전문 의사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3012",
+      "jobName": "일반 의사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3013",
+      "jobName": "한의사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3014",
+      "jobName": "치과의사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3020",
+      "jobName": "수의사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3031",
+      "jobName": "약사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3032",
+      "jobName": "한약사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "3040",
+      "jobName": "간호사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3050",
+      "jobName": "영양사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3061",
+      "jobName": "임상병리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3062",
+      "jobName": "방사선사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3063",
+      "jobName": "치과기공사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3064",
+      "jobName": "치과위생사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3065",
+      "jobName": "물리 및 작업 치료사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3066",
+      "jobName": "임상심리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3067",
+      "jobName": "재활공학 기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3068",
+      "jobName": "언어 및 청각능력 재활사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3069",
+      "jobName": "기타 치료·재활사 및 의료기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3071",
+      "jobName": "응급 구조사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3072",
+      "jobName": "위생사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3073",
+      "jobName": "안경사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3074",
+      "jobName": "보건의료정보 관리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3075",
+      "jobName": "간호조무사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3076",
+      "jobName": "환자안전 관리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3077",
+      "jobName": "수의사 보조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3078",
+      "jobName": "안마사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "3079",
+      "jobName": "기타 돌봄 및 보건 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4111",
+      "jobName": "작가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4112",
+      "jobName": "번역가 및 통역가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4113",
+      "jobName": "출판물 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4120",
+      "jobName": "기자 및 언론 관련 전문가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4131",
+      "jobName": "학예사 및 문화재 보존원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4132",
+      "jobName": "사서 및 기록물관리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4141",
+      "jobName": "화가 및 조각가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4142",
+      "jobName": "사진기자 및 사진사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4143",
+      "jobName": "만화가 및 만화영화 작가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4144",
+      "jobName": "국악 및 전통 예능인",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4145",
+      "jobName": "지휘자·작곡가 및 연주가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4146",
+      "jobName": "가수 및 성악가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4147",
+      "jobName": "무용가 및 안무가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4149",
+      "jobName": "기타 시각 및 공연 예술가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4151",
+      "jobName": "제품 디자이너",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4152",
+      "jobName": "패션 디자이너",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4153",
+      "jobName": "실내장식 디자이너",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4154",
+      "jobName": "시각 디자이너",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4155",
+      "jobName": "미디어 콘텐츠 디자이너",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4161",
+      "jobName": "감독 및 기술 감독",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4162",
+      "jobName": "배우 및 모델",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4163",
+      "jobName": "아나운서 및 리포터",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4164",
+      "jobName": "촬영기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4165",
+      "jobName": "음향 및 녹음 기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4166",
+      "jobName": "영상·녹화 및 편집 기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4167",
+      "jobName": "조명기사 및 영사기사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4168",
+      "jobName": "미디어 콘텐츠 창작자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4169",
+      "jobName": "기타 연극·영화 및 영상 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4171",
+      "jobName": "공연 및 시각예술 기획자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4172",
+      "jobName": "영화 및 음반 기획자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4173",
+      "jobName": "연예인 및 스포츠 매니저",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4201",
+      "jobName": "스포츠 감독 및 코치",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4202",
+      "jobName": "직업 운동선수",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4203",
+      "jobName": "경기 심판 및 경기 기록원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "4204",
+      "jobName": "스포츠 강사 및 트레이너",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "4205",
+      "jobName": "기타 스포츠 및 레크리에이션 관련 전문가",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "4209",
+      "jobName": "기타 여가 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5111",
+      "jobName": "이용사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5112",
+      "jobName": "미용사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5113",
+      "jobName": "네일 관리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5114",
+      "jobName": "피부 및 체형 관리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5115",
+      "jobName": "메이크업 아티스트 및 분장사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5119",
+      "jobName": "기타 미용 관련 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5121",
+      "jobName": "결혼 상담원 및 웨딩플래너",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5122",
+      "jobName": "혼례 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5123",
+      "jobName": "장례 지도사 및 장례 상담원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5124",
+      "jobName": "점술가 및 민속신앙 종사원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5129",
+      "jobName": "기타 개인 생활 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5131",
+      "jobName": "반려동물 훈련사 및 행동 상담사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5132",
+      "jobName": "반려동물 관리 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5211",
+      "jobName": "여행 상품 개발자",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5212",
+      "jobName": "여행 사무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5213",
+      "jobName": "관광 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5221",
+      "jobName": "항공기 객실 승무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5222",
+      "jobName": "선박 및 열차 객실 승무원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5230",
+      "jobName": "숙박시설 서비스 종사원",
+      "judgment": "NEEDS_REVIEW"
+    },
+    {
+      "code": "5240",
+      "jobName": "오락시설 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5311",
+      "jobName": "주방장 및 요리 연구가",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5312",
+      "jobName": "한식 조리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5313",
+      "jobName": "중식 조리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5314",
+      "jobName": "양식 조리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5315",
+      "jobName": "일식 조리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5316",
+      "jobName": "바텐더",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5317",
+      "jobName": "음료 조리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5318",
+      "jobName": "단체급식 조리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5319",
+      "jobName": "기타 조리사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5321",
+      "jobName": "패스트푸드 준비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5322",
+      "jobName": "식음료 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5323",
+      "jobName": "주방 보조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5329",
+      "jobName": "기타 식음료 서비스 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5411",
+      "jobName": "경호원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5412",
+      "jobName": "청원경찰",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5413",
+      "jobName": "시설 및 특수 경비원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5414",
+      "jobName": "보안 관제원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5419",
+      "jobName": "기타 경호 및 보안 관련 종사원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5420",
+      "jobName": "건물 관리원",
+      "judgment": "NEEDS_REVIEW",
+      "detail": "①위탁 없이 심의 통해 개발원 직접 운영 ②직고용(용역·파견 아님) ③제한된 사업량 내 추진 ④기업지원금 50% 감액, 4요건 모두 충족 시 허용"
+    },
+    {
+      "code": "5501",
+      "jobName": "요양보호사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5502",
+      "jobName": "간병인",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5503",
+      "jobName": "노인 돌봄 종사원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5504",
+      "jobName": "장애인 돌봄 종사원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5505",
+      "jobName": "육아 도우미",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5611",
+      "jobName": "건물 청소원",
+      "judgment": "NEEDS_REVIEW",
+      "detail": "①위탁 없이 심의 통해 개발원 직접 운영 ②직고용(용역·파견 아님) ③제한된 사업량 내 추진 ④기업지원금 50% 감액, 4요건 모두 충족 시 허용"
+    },
+    {
+      "code": "5612",
+      "jobName": "운송 및 시설장비 청소원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5613",
+      "jobName": "거리 및 공공장소 청소원",
+      "judgment": "NEEDS_REVIEW",
+      "detail": "①위탁 없이 심의 통해 개발원 직접 운영 ②직고용(용역·파견 아님) ③제한된 사업량 내 추진 ④기업지원금 50% 감액, 4요건 모두 충족 시 허용"
+    },
+    {
+      "code": "5614",
+      "jobName": "재활용품 및 쓰레기 수거원",
+      "judgment": "NEEDS_REVIEW",
+      "detail": "①위탁 없이 심의 통해 개발원 직접 운영 ②직고용(용역·파견 아님) ③제한된 사업량 내 추진 ④기업지원금 50% 감액, 4요건 모두 충족 시 허용"
+    },
+    {
+      "code": "5619",
+      "jobName": "기타 청소 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5621",
+      "jobName": "세정원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5622",
+      "jobName": "방역원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5631",
+      "jobName": "구두 미화원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5632",
+      "jobName": "세탁원 및 다림질원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5633",
+      "jobName": "가사 도우미",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "5641",
+      "jobName": "계기 검침원 및 가스 점검원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5642",
+      "jobName": "자동판매기 관리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5643",
+      "jobName": "주차 관리원 및 안내원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5644",
+      "jobName": "검표원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5645",
+      "jobName": "대여 제품 방문 점검원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "5649",
+      "jobName": "기타 서비스 관련 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6110",
+      "jobName": "부동산 컨설턴트 및 중개사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6121",
+      "jobName": "기술 영업원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6122",
+      "jobName": "해외 영업원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6123",
+      "jobName": "상품중개인 및 경매사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6129",
+      "jobName": "기타 기술 영업 및 중개 관련 종사원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6131",
+      "jobName": "자동차 영업원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6132",
+      "jobName": "제품 영업원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6139",
+      "jobName": "기타 영업원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6140",
+      "jobName": "텔레마케터",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6151",
+      "jobName": "소규모 상점 경영 및 일선 관리 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6152",
+      "jobName": "상점 판매원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6153",
+      "jobName": "단말기 및 통신 서비스 판매원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6154",
+      "jobName": "온라인 쇼핑 판매원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6155",
+      "jobName": "상품 대여원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6156",
+      "jobName": "노점 및 이동 판매원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6157",
+      "jobName": "방문 판매원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6158",
+      "jobName": "주유원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6161",
+      "jobName": "매장 계산원 및 요금 정산원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6162",
+      "jobName": "매표원 및 복권 판매원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6171",
+      "jobName": "홍보 도우미 및 판촉원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6179",
+      "jobName": "기타 판매 관련 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6211",
+      "jobName": "항공기 조종사",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6212",
+      "jobName": "선장 및 항해사·도선사",
+      "judgment": "NEEDS_REVIEW"
+    },
+    {
+      "code": "6213",
+      "jobName": "철도 및 전동차 기관사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6214",
+      "jobName": "관제사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6219",
+      "jobName": "철도운송 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6221",
+      "jobName": "택시 운전원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6222",
+      "jobName": "버스 운전원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6223",
+      "jobName": "화물차 및 특수차 운전원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6229",
+      "jobName": "기타 자동차 운전원",
+      "judgment": "NEEDS_REVIEW"
+    },
+    {
+      "code": "6230",
+      "jobName": "물품 이동 장비 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6241",
+      "jobName": "택배원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6242",
+      "jobName": "늘찬배달원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6243",
+      "jobName": "우편집배원",
+      "judgment": "EXCLUDED"
+    },
+    {
+      "code": "6244",
+      "jobName": "선박 승무원 및 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6245",
+      "jobName": "하역 및 적재 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6246",
+      "jobName": "화물 분류원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6247",
+      "jobName": "정기배달원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "6249",
+      "jobName": "기타 배달원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7011",
+      "jobName": "강구조물 가공원 및 건립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7012",
+      "jobName": "경량 철골공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7013",
+      "jobName": "철근공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7014",
+      "jobName": "콘크리트공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7015",
+      "jobName": "건축 석공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7016",
+      "jobName": "건축 목공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7017",
+      "jobName": "조적공 및 석재 부설원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7019",
+      "jobName": "기타 건설 관련 기능 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7021",
+      "jobName": "미장공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7022",
+      "jobName": "방수공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7023",
+      "jobName": "단열공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7024",
+      "jobName": "바닥재 시공원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7025",
+      "jobName": "도배공 및 유리 부착원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7026",
+      "jobName": "건축 도장공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7027",
+      "jobName": "새시 조립 및 설치원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7029",
+      "jobName": "기타 건축 마감 관련 기능 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7031",
+      "jobName": "건설 배관공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7032",
+      "jobName": "공업 배관공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7039",
+      "jobName": "기타 배관공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7040",
+      "jobName": "건설 및 채굴기계 운전원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7051",
+      "jobName": "광원·채석원 및 석재 절단원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7052",
+      "jobName": "철로 설치 및 보수원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7059",
+      "jobName": "기타 채굴 및 토목 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "7060",
+      "jobName": "건설 및 광업 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8111",
+      "jobName": "로봇 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8112",
+      "jobName": "공업기계 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8113",
+      "jobName": "승강기 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8114",
+      "jobName": "물품 이동 장비 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8115",
+      "jobName": "냉동·냉장·공조기 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8116",
+      "jobName": "보일러 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8117",
+      "jobName": "건설·광업기계 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8119",
+      "jobName": "농업용·기타 기계장비 설치 및 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8121",
+      "jobName": "항공기 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8122",
+      "jobName": "선박 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8123",
+      "jobName": "철도 기관차 및 전동차 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8124",
+      "jobName": "자동차 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8129",
+      "jobName": "기타 운송장비 정비원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8131",
+      "jobName": "금형원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8132",
+      "jobName": "금속 공작기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8140",
+      "jobName": "냉·난방 관련 설비 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8150",
+      "jobName": "자동조립라인 및 산업용로봇 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8161",
+      "jobName": "일반기계 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8162",
+      "jobName": "기계 부품 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8171",
+      "jobName": "자동차 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8172",
+      "jobName": "자동차 부품 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8173",
+      "jobName": "운송장비 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8211",
+      "jobName": "금속가공 관련 제어 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8212",
+      "jobName": "금속가공 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8221",
+      "jobName": "판금원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8222",
+      "jobName": "판금기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8223",
+      "jobName": "제관원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8224",
+      "jobName": "제관기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8231",
+      "jobName": "단조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8232",
+      "jobName": "단조기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8233",
+      "jobName": "주조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8234",
+      "jobName": "주조기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8241",
+      "jobName": "용접원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8242",
+      "jobName": "용접기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8251",
+      "jobName": "도장기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8252",
+      "jobName": "도금 및 금속 분무기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8261",
+      "jobName": "유리 제조 및 가공기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8262",
+      "jobName": "점토제품 생산기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8263",
+      "jobName": "시멘트 및 광물제품 제조기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8264",
+      "jobName": "광석 및 석제품 가공기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8269",
+      "jobName": "기타 비금속제품 관련 생산기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8311",
+      "jobName": "산업 전기공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8312",
+      "jobName": "내선 전기공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8313",
+      "jobName": "외선 전기공",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8321",
+      "jobName": "사무용 전자기기 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8322",
+      "jobName": "가전제품 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8329",
+      "jobName": "기타 전기·전자기기 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8330",
+      "jobName": "발전 및 배전 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8340",
+      "jobName": "전기 및 전자설비 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8351",
+      "jobName": "전기 부품 및 제품 제조 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8352",
+      "jobName": "일차전지 및 이차전지 제조 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8353",
+      "jobName": "전자 부품 및 제품 제조 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8360",
+      "jobName": "전기·전자 부품 및 제품 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8411",
+      "jobName": "컴퓨터 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8412",
+      "jobName": "이동전화기 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8419",
+      "jobName": "기타 정보 통신기기 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8421",
+      "jobName": "방송 관련 장비 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8422",
+      "jobName": "통신 관련 장비 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8423",
+      "jobName": "방송·통신·인터넷 케이블 설치 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8511",
+      "jobName": "석유 및 천연가스 제조 관련 제어 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8512",
+      "jobName": "화학물 가공 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8519",
+      "jobName": "기타 석유 및 화학물 가공 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8521",
+      "jobName": "타이어 및 고무제품 생산기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8522",
+      "jobName": "플라스틱제품 생산기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8523",
+      "jobName": "화학제품 생산기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8524",
+      "jobName": "고무 및 플라스틱제품 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8531",
+      "jobName": "상하수도 처리 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8532",
+      "jobName": "재활용 처리 및 소각로 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8611",
+      "jobName": "섬유 제조 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8612",
+      "jobName": "직조기 및 편직기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8613",
+      "jobName": "표백 및 염색 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8621",
+      "jobName": "패턴사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8622",
+      "jobName": "재단사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8623",
+      "jobName": "재봉사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8629",
+      "jobName": "기타 섬유 및 가죽 관련 기능 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8631",
+      "jobName": "한복 제조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8632",
+      "jobName": "양장 및 양복 제조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8633",
+      "jobName": "모피 및 가죽 의복 제조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8634",
+      "jobName": "의복·가죽 및 모피 수선원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8639",
+      "jobName": "기타 의복 제조 관련 기능 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8641",
+      "jobName": "제화원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8642",
+      "jobName": "신발 제조기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8643",
+      "jobName": "세탁 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8649",
+      "jobName": "기타 직물·신발 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8711",
+      "jobName": "제과원 및 제빵사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8712",
+      "jobName": "떡 제조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8721",
+      "jobName": "정육 가공원 및 도축원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8722",
+      "jobName": "김치 및 밑반찬 제조 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8723",
+      "jobName": "도시락 제조원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8724",
+      "jobName": "식품 및 담배 등급원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8729",
+      "jobName": "기타 식품 가공 관련 기능 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8731",
+      "jobName": "육류·어패류 및 낙농품 가공 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8732",
+      "jobName": "제분 및 도정 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8733",
+      "jobName": "곡물가공 제품 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8734",
+      "jobName": "과실 및 채소가공 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8735",
+      "jobName": "음료 제조 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8739",
+      "jobName": "기타 식품가공 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8811",
+      "jobName": "인쇄 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8812",
+      "jobName": "사진 인화 및 현상기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8821",
+      "jobName": "목재 가공 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8822",
+      "jobName": "펄프 및 종이 제조 장치 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8823",
+      "jobName": "종이제품 생산기 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8829",
+      "jobName": "기타 목재 및 종이 관련 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8831",
+      "jobName": "가구 제조 및 수리원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8832",
+      "jobName": "가구 조립원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8833",
+      "jobName": "목제품 제조 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8841",
+      "jobName": "공예원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8842",
+      "jobName": "귀금속 및 보석 세공원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8851",
+      "jobName": "악기 제조 및 조율사",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8852",
+      "jobName": "간판 제작 및 설치원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8853",
+      "jobName": "기타 기능 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8859",
+      "jobName": "기타 기계 조작원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "8900",
+      "jobName": "기타 제조 관련 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9011",
+      "jobName": "곡식작물 재배원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9012",
+      "jobName": "채소 및 특용작물 재배원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9013",
+      "jobName": "과수작물 재배원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9014",
+      "jobName": "원예작물 재배원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9015",
+      "jobName": "조경원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9021",
+      "jobName": "낙농 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9022",
+      "jobName": "한우 및 육우 사육원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9023",
+      "jobName": "돼지 사육원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9024",
+      "jobName": "가금 사육원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9029",
+      "jobName": "기타 축산 및 사육 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9031",
+      "jobName": "조림·산림 경영인 및 벌목원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9039",
+      "jobName": "기타 임업 관련 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9041",
+      "jobName": "양식원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9042",
+      "jobName": "어부 및 해녀",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9051",
+      "jobName": "농업 관련 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9052",
+      "jobName": "임업 관련 단순 종사원",
+      "judgment": "ELIGIBLE"
+    },
+    {
+      "code": "9053",
+      "jobName": "어업 관련 단순 종사원",
+      "judgment": "ELIGIBLE"
+    }
+  ]
+}

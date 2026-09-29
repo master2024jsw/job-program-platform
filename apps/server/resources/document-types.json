@@ -1,5 +1,7 @@
 [
   { "code": "COMPANY_APPLICATION", "label": "참여기업 신청서" },
+  { "code": "OPERATION_PLAN", "label": "운영계획서" },
+  { "code": "WORKPLACE_INSURANCE", "label": "4대보험 사업장 가입내역 확인서" },
   { "code": "BUSINESS_REGISTRATION", "label": "사업자등록증" },
   { "code": "PARTICIPANT_APPLICATION", "label": "참여신청서" },
   { "code": "PRIVACY_CONSENT", "label": "개인정보 수집·이용 동의서" },

@@ -1,0 +1,60 @@
+{
+  "typeCode": "SENIOR",
+  "target": "COMPANY",
+  "guidelineYear": 2026,
+  "source": "2026년도 현장실습 훈련 지원사업 운영안내 — 기업 적격 확인(4단계)",
+  "documentFields": {
+    "COMPANY_APPLICATION": ["businessRegistrationNumber", "companyName", "representativeName", "phone", "email", "recruitJobTitle", "recruitJobCode"],
+    "OPERATION_PLAN": ["generalTypeCount", "intergenerationalTypeCount", "plannedHeadcount", "representativeConsentToShareAdminInfo"],
+    "WORKPLACE_INSURANCE": ["businessRegistrationNumber", "nationalPension", "healthInsurance", "industrialAccident", "employmentInsurance"],
+    "BUSINESS_REGISTRATION": ["businessRegistrationNumber", "companyName", "representativeName"]
+  },
+  "rules": [
+    {
+      "id": "R-101",
+      "type": "crossCheck",
+      "label": "사업자등록번호 3자 일치",
+      "field": "businessRegistrationNumber",
+      "documents": ["COMPANY_APPLICATION", "BUSINESS_REGISTRATION", "WORKPLACE_INSURANCE"],
+      "normalize": "brn",
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-102",
+      "type": "riskFlag",
+      "label": "4대보험 사업장 가입 확인",
+      "document": "WORKPLACE_INSURANCE",
+      "fields": ["nationalPension", "healthInsurance", "industrialAccident", "employmentInsurance"],
+      "fieldLabels": {
+        "nationalPension": "국민연금",
+        "healthInsurance": "건강보험",
+        "industrialAccident": "산재보험",
+        "employmentInsurance": "고용보험"
+      },
+      "expected": "가입",
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-103",
+      "type": "riskFlag",
+      "label": "대표자 행정정보 공동이용 동의",
+      "document": "OPERATION_PLAN",
+      "fields": ["representativeConsentToShareAdminInfo"],
+      "fieldLabels": { "representativeConsentToShareAdminInfo": "행정정보 공동이용 동의" },
+      "expectedBoolean": true,
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-104",
+      "type": "calcRule",
+      "label": "모집직종 참여가능 판정",
+      "document": "COMPANY_APPLICATION",
+      "codeField": "recruitJobCode",
+      "titleField": "recruitJobTitle",
+      "lookup": "job-classifications",
+      "verdictMap": { "ELIGIBLE": "PASS", "EXCLUDED": "FAIL", "NEEDS_REVIEW": "NEEDS_REVIEW" },
+      "eligibilityLabelMap": { "PASS": "가능", "FAIL": "제외", "NEEDS_REVIEW": "담당자확인" },
+      "onMissing": "NEEDS_REVIEW"
+    }
+  ]
+}

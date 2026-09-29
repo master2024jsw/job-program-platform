@@ -54,6 +54,18 @@ export class CompanyBusiness {
   @Column({ name: 'participant_applied', type: 'boolean', default: false })
   participantApplied!: boolean;
 
+  /** 4단계 기업신청: 모집직종명(예: 버스 운전원) — 신청서에서 추출. */
+  @Column({ name: 'recruit_job_title', type: 'varchar', nullable: true })
+  recruitJobTitle?: string | null;
+
+  /** 4단계 기업신청: 모집직종 코드(4자리, 예: 6222) — R-104 조회 키. */
+  @Column({ name: 'recruit_job_code', type: 'varchar', nullable: true })
+  recruitJobCode?: string | null;
+
+  /** 4단계 기업신청: R-104 직종판정 결과(가능/제외/담당자확인). */
+  @Column({ name: 'job_eligibility', type: 'varchar', nullable: true })
+  jobEligibility?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

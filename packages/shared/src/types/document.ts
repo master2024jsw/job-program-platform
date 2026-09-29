@@ -9,6 +9,8 @@ export enum DocumentAnalysisStatus {
 /** 문서 1.4절 서류유형 코드. Document.documentType은 이 코드값으로 관리한다 (D단계에서 실제 적용). */
 export const DOCUMENT_TYPE_CODES = [
   'COMPANY_APPLICATION',
+  'OPERATION_PLAN',
+  'WORKPLACE_INSURANCE',
   'BUSINESS_REGISTRATION',
   'PARTICIPANT_APPLICATION',
   'PRIVACY_CONSENT',

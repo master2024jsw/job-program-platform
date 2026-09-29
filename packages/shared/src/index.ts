@@ -3,6 +3,7 @@ export * from './types/company';
 export * from './types/worker';
 export * from './types/mail';
 export * from './types/document';
+export * from './types/validation';
 export * from './types/announcement';
 export * from './types/auth';
 export * from './types/business';
