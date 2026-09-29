@@ -14,10 +14,12 @@ Claude Code가 이 저장소에서 세션을 시작할 때 참고하는 프로�
 
 - **브랜치**: `claude/work-status-plan-cetclm` (아직 `master`에 병합 전 — `git fetch origin && git checkout claude/work-status-plan-cetclm`으로 이어받을 것)
 - [docs/05_실행계획_사업스코프확장.md](docs/05_실행계획_사업스코프확장.md) — 04문서 5절 순서1(사업 스코프 확장, 심사① 대응) — **A~E 전 단계 완료 (2026-09-22)**
-- **다음 세션에서 바로 할 일**: 04문서 5절 순서2(검증엔진 MVP — 규칙 데이터 스키마, 실행기, 판정 이력, REQ2·REQ3). **단, 착수 전에 반드시 사용자에게 먼저 알리고 승인받을 것** — 2026-09-22 사용자 명시 요청. `common/domain-validation-engine.interface.ts` 등에 실제 구현을 시작하기 전 채팅으로 확인부터.
+- **검증엔진 4단계(기업신청) 완료 (2026-09-29)** — 04문서 순서2의 기업 적격 확인 파트. `modules/validation`(엔진·판정이력·컨트롤러), 규칙 원장 데이터(`resources/validation-rules/SENIOR-company.json`, `resources/job-classifications.json`), 주민번호 마스킹(`common/masking.util.ts`), 문서함 "기업 신청 검증" 대조·승인 탭(`CompanyValidationPanel`, businessId/companyId 파라미터로 5·6 재사용 가능), 참여기업 관리대장 내보내기. analyze()가 기업서류 분석 후 자동 검증.
+- **다음 세션에서 바로 할 일**: 검증엔진 5단계(근로자신청 — calcRule 만연령·중복참여) / 6단계(지원금신청 — exceptionRule 법인전환·통장압류, SubsidyCalculation 회차·유형 컬럼). 착수 전 사용자 승인. 5·6에서 Worker `internEndDate`/`continuousHireDate`, SubsidyCalculation `subsidyType`/`round` 컬럼 추가 필요(데이터모델 문서 §5 참고).
 - C1 작업 중 확인된 것: `Business.id`는 UUID가 아니라 `BIZ-2026-SENIOR` 형식 문자열이므로 businessId류 DTO 필드는 `@IsString()`을 쓸 것(`@IsUUID()` 아님). 또한 `POST /documents`·`POST /workers/import`처럼 Multer(FileInterceptor)를 쓰는 라우트는 전역 `BusinessAccessGuard`가 body의 businessId를 볼 수 없어(Guard가 인터셉터보다 먼저 실행됨) 컨트롤러에서 `BusinessesService.assertAccess()`를 직접 호출해야 함 — 새 멀티파트 엔드포인트를 추가할 때 같은 패턴을 따를 것.
 - C2 작업 중 확인된 것: `npm run build -w apps/renderer`(프로덕션 `vite build`)가 `@job-program/shared`가 CommonJS로 컴파일되어 있어 Rollup이 `BUSINESS_TYPE_CODES` 등 named export를 정적으로 못 찾아 실패함(`SetupPage.tsx`에서 발생, B단계부터 있던 기존 버그 — `npm run dev`만 써왔어서 발견 안 됐던 것). `tsc -b`(타입체크)는 정상 통과하므로 `npm run dev` 개발 워크플로에는 영향 없음. 실제 프로덕션 패키징(Electron 빌드) 작업 시 shared 패키지를 ESM으로 바꾸거나 vite 설정에서 CJS interop을 조정해야 함 — README "알려진 후속 작업"에 반영 필요.
 - 이 환경엔 `node_modules`가 없어서 `npm install`을 먼저 해야 `npm run dev`/`build`가 됨 (A단계 작업 중 확인됨, package-lock.json 변경은 없음)
+- 4단계 작업 중 확인된 것: `packages/shared`에 **새 값(const) export를 추가한 뒤**에는 Vite dev 서버가 심링크 워크스페이스의 dist 변경을 사전번들 해시에 반영하지 않아 옛 청크를 캐시함(런타임에 `undefined` export로 크래시). `npm run dev -- --force`(또는 vite `--force`)로 재기동해야 새 export가 반영됨. 타입 전용 export는 무관.
 
 ## 프로젝트
 
@@ -87,5 +89,6 @@ Electron 데스크톱 앱 + NestJS 백엔드 + React 프론트엔드, 로컬 SQL
 - 2026-07-30: 문서함 AI분석(Gemini), 신사업 알리미(크롤링), 지원금 산정, 엑셀 업/다운로드
 - 2026-07-31 (1차 개발지시서): 로그인/세션, 신사업 알리미 확장(D-day 등), 기업 DB 표준양식 재구성
 - 2026-09-21: 논문 심사 지적 대응 기준 문서(01, 04) 반영, 05 실행계획 수립 후 A·B단계 완료 (사업유형 3종·서류유형 코드·필수서류 API, 로그인 화면 사업 선택)
-- 2026-09-22: 05 실행계획(사업 스코프 확장, 심사① 대응) A~E 전 단계 완료 — businessId 스코프 백엔드·프론트엔드, 문서함 미분류 탭, 서류유형 코드 업로드·AI분석·검토화면 적용, 기업·근로자별 필수서류 체크리스트. 다음은 04문서 순서2(검증엔진), 착수 전 사용자 승인 필요 — 상세는 위 "진행 중인 작업" 참고
+- 2026-09-22: 05 실행계획(사업 스코프 확장, 심사① 대응) A~E 전 단계 완료 — businessId 스코프 백엔드·프론트엔드, 문서함 미분류 탭, 서류유형 코드 업로드·AI분석·검토화면 적용, 기업·근로자별 필수서류 체크리스트
+- 2026-09-29: 검증엔진 4단계(기업신청) — 규칙 원장 R-101~104(3자 대조·4대보험·동의·직종판정) 데이터 로드, DomainValidationEngine·JudgmentHistory, 주민번호 마스킹, 문서함 대조·승인 UI, 참여기업 관리대장 내보내기. 비젼투어 케이스 재현. 다음은 검증엔진 5·6단계(착수 전 사용자 승인) — 상세는 위 "진행 중인 작업" 참고
 - 아직 프로덕션 패키징(Electron 안에서 NestJS 서버 동봉 구동)은 미완료 — README의 "알려진 후속 작업" 참고
