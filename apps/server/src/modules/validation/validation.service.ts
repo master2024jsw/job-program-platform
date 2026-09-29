@@ -45,6 +45,22 @@ function normalizeBrn(raw: unknown): string | null {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
 }
 
+/**
+ * AI가 한 파일에 여러 서류가 섞인 경우 배열로 반환하기도 한다. 배열이면 원소들을 하나로 병합하고,
+ * 객체면 그대로, 그 외에는 null 을 돌려준다.
+ */
+function normalizeExtracted(raw: unknown): Record<string, unknown> | null {
+  if (Array.isArray(raw)) {
+    const merged: Record<string, unknown> = {};
+    for (const el of raw) {
+      if (el && typeof el === 'object') Object.assign(merged, el as Record<string, unknown>);
+    }
+    return Object.keys(merged).length ? merged : null;
+  }
+  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
+  return null;
+}
+
 @Injectable()
 export class ValidationService {
   private readonly logger = new Logger(ValidationService.name);
@@ -83,7 +99,7 @@ export class ValidationService {
       const code = doc.documentType as DocumentTypeCode | undefined;
       if (!code) continue;
       presentTypes.add(code);
-      const data = (doc.reviewedData ?? doc.extractedData) as Record<string, unknown> | null;
+      const data = normalizeExtracted(doc.reviewedData ?? doc.extractedData);
       if (data) {
         byType[code] = data;
         analyzedTypes.add(code);
