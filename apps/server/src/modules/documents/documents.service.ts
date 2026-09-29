@@ -110,7 +110,7 @@ export class DocumentsService {
 
     try {
       const pdfPath = await this.ensurePdf(document);
-      const rawExtracted = await this.geminiService.extractFromPdf(pdfPath, dto.prompt);
+      const rawExtracted = await this.geminiService.extractFromPdf(pdfPath, dto.prompt, document.documentType as DocumentTypeCode | null);
       // 외부 AI가 돌려준 추출값을 저장하기 전에 주민번호를 마스킹한다(DB에 평문 미저장, 보안 안내문 준수).
       document.extractedData = maskDeep(rawExtracted);
       // 업로드 시 실무자가 직접 문서종류를 지정했으면 AI 판단으로 덮어쓰지 않는다.
