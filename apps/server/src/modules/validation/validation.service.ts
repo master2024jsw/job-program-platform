@@ -169,18 +169,28 @@ export class ValidationService {
     const hit = this.jobClassificationService.lookup(recruitJobCode);
     const jobEligibility = hit ? JOB_JUDGMENT_LABEL[hit.judgment] ?? '담당자확인' : recruitJobCode ? '담당자확인' : null;
 
+    const generalTypeCount = toNumber(plan.generalTypeCount);
+    const intergenerationalTypeCount = toNumber(plan.intergenerationalTypeCount);
+    let participationType: string | null = null;
+    const g = generalTypeCount ?? 0;
+    const i = intergenerationalTypeCount ?? 0;
+    if (g > 0 && i > 0) participationType = '혼합형';
+    else if (g > 0) participationType = '인턴형';
+    else if (i > 0) participationType = '세대통합형';
+
     return {
       businessRegistrationNumber: normalizeBrn(app.businessRegistrationNumber ?? reg.businessRegistrationNumber),
       companyName: toText(app.companyName ?? reg.companyName),
       phone: toText(app.phone),
       email: toText(app.email),
       representativeName: toText(app.representativeName ?? reg.representativeName),
-      generalTypeCount: toNumber(plan.generalTypeCount),
-      intergenerationalTypeCount: toNumber(plan.intergenerationalTypeCount),
+      generalTypeCount,
+      intergenerationalTypeCount,
       plannedHeadcount: toNumber(plan.plannedHeadcount),
       recruitJobTitle: toText(app.recruitJobTitle),
       recruitJobCode,
       jobEligibility,
+      participationType,
     };
   }
 
@@ -215,6 +225,7 @@ export class ValidationService {
     // CompanyBusiness(사업별 진행상태) 반영
     await this.companiesService.upsertCompanyBusiness(companyId, {
       businessId,
+      participationType: reviewed.participationType ?? undefined,
       plannedHeadcount: reviewed.plannedHeadcount ?? undefined,
       generalTypeHeadcount: reviewed.generalTypeCount ?? undefined,
       intergenerationalTypeHeadcount: reviewed.intergenerationalTypeCount ?? undefined,

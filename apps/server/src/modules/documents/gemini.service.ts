@@ -16,7 +16,7 @@ const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
   COMPANY_APPLICATION:
     'businessRegistrationNumber, companyName, representativeName, phone(전화(팩스)에서 전화만), email, recruitJobTitle(모집직종명), recruitJobCode(모집직종 4자리 코드)',
   OPERATION_PLAN:
-    'generalTypeCount(일반형 인원 숫자), intergenerationalTypeCount(세대통합형 인원 숫자), plannedHeadcount(부서배치 참여인원 숫자), representativeConsentToShareAdminInfo(대표자 행정정보 공동이용 동의: true/false)',
+    "generalTypeCount(일반형 인원 숫자 — 운영계획서에 '인턴' 또는 '인턴형'으로 표기되면 반드시 여기에 넣어라), intergenerationalTypeCount(세대통합형 인원 숫자 — '세대통합'으로 표기된 경우만), plannedHeadcount(부서배치 참여인원 숫자), representativeConsentToShareAdminInfo(대표자 행정정보 공동이용 동의: true/false)",
   WORKPLACE_INSURANCE:
     'businessRegistrationNumber, nationalPension·healthInsurance·industrialAccident·employmentInsurance(각각 "가입"/"미가입")',
   BUSINESS_REGISTRATION: 'businessRegistrationNumber, companyName(상호), representativeName(대표자)',

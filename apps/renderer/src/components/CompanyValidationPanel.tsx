@@ -39,6 +39,7 @@ type EditableFields = Pick<
   | 'recruitJobTitle'
   | 'recruitJobCode'
   | 'jobEligibility'
+  | 'participationType'
 >;
 
 /**
@@ -67,6 +68,7 @@ export function CompanyValidationPanel({ businessId, companyId }: { businessId: 
       recruitJobTitle: data.mapped.recruitJobTitle ?? '',
       recruitJobCode: data.mapped.recruitJobCode ?? '',
       jobEligibility: data.mapped.jobEligibility ?? '',
+      participationType: data.mapped.participationType ?? '',
     });
   }, []);
 
@@ -289,6 +291,16 @@ export function CompanyValidationPanel({ businessId, companyId }: { businessId: 
               className="text-input"
               value={form.jobEligibility ?? ''}
               onChange={(e) => setForm({ ...form, jobEligibility: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label>참여유형</label>
+            <input
+              className="text-input"
+              readOnly
+              value={form.participationType ?? ''}
+              style={{ background: 'var(--surface, #f6f7f9)', cursor: 'default' }}
+              title="일반형/세대통합형 인원 수에서 자동 도출"
             />
           </div>
         </div>

@@ -13,6 +13,7 @@ class CompanyLedgerFieldsDto {
   @IsOptional() @IsString() recruitJobTitle?: string | null;
   @IsOptional() @IsString() recruitJobCode?: string | null;
   @IsOptional() @IsString() jobEligibility?: string | null;
+  @IsOptional() @IsString() participationType?: string | null;
 }
 
 export class ApproveCompanyDto {

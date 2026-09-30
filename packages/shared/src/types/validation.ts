@@ -52,6 +52,8 @@ export interface CompanyLedgerFields {
   recruitJobCode: string | null;
   /** R-104 결과: 가능 / 제외 / 담당자확인. */
   jobEligibility: string | null;
+  /** 운영계획서 인원 수에서 도출: 인턴형(일반형) / 세대통합형 / 혼합형. */
+  participationType: string | null;
 }
 
 export interface CompanyValidationResult {
