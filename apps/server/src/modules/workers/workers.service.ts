@@ -6,6 +6,7 @@ import { buildExcelBuffer, readExcelRows, type ExcelColumn, type ImportSummary }
 import { Worker } from './worker.entity';
 import { Company } from '../companies/company.entity';
 import { CompanyBusiness } from '../companies/company-business.entity';
+import { SubsidyCalculation } from '../subsidy/subsidy-calculation.entity';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
 
@@ -59,8 +60,8 @@ const EXCEL_COLUMNS: ExcelColumn[] = [
 
 const HEADER_TO_KEY = Object.fromEntries(EXCEL_COLUMNS.map((c) => [c.header, c.key]));
 
-/** '2026년 참여자관리' 시트 헤더와 반드시 일치해야 한다. */
-const LEDGER_COLUMNS: ExcelColumn[] = [
+/** '2026년 참여자관리' 시트 헤더 A~J. 회차 K~W는 buildSubsidyLedgerColumns()로 동적 추가. */
+const LEDGER_COLUMNS_BASE: ExcelColumn[] = [
   { header: '순번', key: 'seq', width: 6 },
   { header: '기업명', key: 'companyName', width: 22 },
   { header: '연락처', key: 'phone', width: 16 },
@@ -72,6 +73,19 @@ const LEDGER_COLUMNS: ExcelColumn[] = [
   { header: '인턴종료일', key: 'internEndDate', width: 14 },
   { header: '퇴사일', key: 'resignDate', width: 14 },
 ];
+
+const MAX_ROUNDS = 4;
+
+function buildSubsidyLedgerColumns(): ExcelColumn[] {
+  const cols: ExcelColumn[] = [];
+  for (let r = 1; r <= MAX_ROUNDS; r++) {
+    cols.push({ header: `${r}회차급여월`, key: `r${r}period`, width: 12 });
+    cols.push({ header: `${r}회차기본급`, key: `r${r}salary`, width: 12 });
+    cols.push({ header: `${r}회차지원금`, key: `r${r}amount`, width: 12 });
+  }
+  cols.push({ header: '지원금합계', key: 'subsidyTotal', width: 14 });
+  return cols;
+}
 
 /** 주민번호 표시용 마스킹: birthDate(YYYY-MM-DD) + gender → YYMMDD-G###### */
 function maskRrnForLedger(worker: Worker): string {
@@ -90,6 +104,8 @@ export class WorkersService {
     private readonly companiesRepository: Repository<Company>,
     @InjectRepository(CompanyBusiness)
     private readonly companyBusinessRepository: Repository<CompanyBusiness>,
+    @InjectRepository(SubsidyCalculation)
+    private readonly subsidyCalcRepository: Repository<SubsidyCalculation>,
   ) {}
 
   create(dto: CreateWorkerDto): Promise<Worker> {
@@ -158,8 +174,8 @@ export class WorkersService {
   }
 
   /**
-   * '2026년 참여자관리' 대장 형식으로 내보낸다.
-   * 이메일·참여유형은 Company/CompanyBusiness 조인값, 주민번호는 마스킹.
+   * '2026년 참여자관리+지원금' 통합 대장 형식으로 내보낸다.
+   * A~J: 근로자 기본정보 / K~W: 지원금 회차별 산정액(최대 4회차 + 합계).
    */
   async exportLedger(businessId?: string): Promise<Buffer> {
     const workers = await this.workersRepository.find({
@@ -180,20 +196,53 @@ export class WorkersService {
       }
     }
 
-    const rows = workers.map((w, i) => ({
-      seq: i + 1,
-      companyName: w.company?.name ?? '',
-      phone: w.phone ?? '',
-      email: w.company?.email ?? '',
-      participationType: cbMap.get(w.companyId ?? '')?.participationType ?? '',
-      name: w.name,
-      residentNumber: maskRrnForLedger(w),
-      internStartDate: w.hireDate ?? '',
-      internEndDate: w.internEndDate ?? '',
-      resignDate: w.resignDate ?? '',
-    }));
+    // SubsidyCalculation 회차 일괄 조회 (workerId 목록)
+    const workerIds = workers.map((w) => w.id);
+    const subsidyMap = new Map<string, SubsidyCalculation[]>();
+    if (workerIds.length) {
+      const calcs = await this.subsidyCalcRepository.find({
+        where: businessId ? { workerId: In(workerIds), businessId } : { workerId: In(workerIds) },
+        order: { round: 'ASC' },
+      });
+      for (const c of calcs) {
+        const arr = subsidyMap.get(c.workerId) ?? [];
+        arr.push(c);
+        subsidyMap.set(c.workerId, arr);
+      }
+    }
 
-    return buildExcelBuffer('2026년 참여자관리', LEDGER_COLUMNS, rows);
+    const subsidyCols = buildSubsidyLedgerColumns();
+    const allCols = [...LEDGER_COLUMNS_BASE, ...subsidyCols];
+
+    const rows = workers.map((w, i) => {
+      const rounds = subsidyMap.get(w.id) ?? [];
+      const roundData: Record<string, unknown> = {};
+      let subsidyTotal = 0;
+      for (let r = 1; r <= MAX_ROUNDS; r++) {
+        const rc = rounds.find((x) => x.round === r);
+        roundData[`r${r}period`] = rc?.periodLabel ?? '';
+        roundData[`r${r}salary`] = rc?.baseSalary ?? '';
+        roundData[`r${r}amount`] = rc?.calculatedAmount ?? '';
+        subsidyTotal += rc?.calculatedAmount ?? 0;
+      }
+      roundData.subsidyTotal = subsidyTotal || '';
+
+      return {
+        seq: i + 1,
+        companyName: w.company?.name ?? '',
+        phone: w.phone ?? '',
+        email: w.company?.email ?? '',
+        participationType: cbMap.get(w.companyId ?? '')?.participationType ?? '',
+        name: w.name,
+        residentNumber: maskRrnForLedger(w),
+        internStartDate: w.hireDate ?? '',
+        internEndDate: w.internEndDate ?? '',
+        resignDate: w.resignDate ?? '',
+        ...roundData,
+      };
+    });
+
+    return buildExcelBuffer('2026년 참여자관리', allCols, rows);
   }
 
   async importFromExcel(buffer: Buffer, businessId?: string): Promise<ImportSummary> {

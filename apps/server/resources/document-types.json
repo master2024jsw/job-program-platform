@@ -15,5 +15,11 @@
   { "code": "ELIGIBILITY_CONFIRM", "label": "참여자 적격 여부 확인서" },
   { "code": "LABOR_CONTRACT", "label": "표준/자체 근로계약서" },
   { "code": "EDUCATION_LEDGER", "label": "참여자 교육 관리대장" },
+  { "code": "SUBSIDY_APPLICATION", "label": "일반형 지원금 지급신청서(서식15)" },
+  { "code": "SUBSIDY_CALCULATION", "label": "지원금 신청 인원별 산출내역" },
+  { "code": "INSURANCE_ROSTER", "label": "4대보험 사업장 가입자명부" },
+  { "code": "PAYROLL", "label": "급여명세서/급여대장" },
+  { "code": "SALARY_TRANSFER", "label": "급여 이체확인증" },
+  { "code": "BANK_ACCOUNT_COPY", "label": "통장사본" },
   { "code": "OTHER", "label": "기타" }
 ]

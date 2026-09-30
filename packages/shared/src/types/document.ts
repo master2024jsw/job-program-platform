@@ -25,8 +25,16 @@ export const DOCUMENT_TYPE_CODES = [
   'ELIGIBILITY_CONFIRM',
   'LABOR_CONTRACT',
   'EDUCATION_LEDGER',
-  // 가상 컨텍스트: 서비스에서 검증엔진으로 기업 정보를 주입할 때 사용 (실제 파일이 아님)
+  // 6단계: 지원금신청 서류유형 (R-301~309)
+  'SUBSIDY_APPLICATION',
+  'SUBSIDY_CALCULATION',
+  'INSURANCE_ROSTER',
+  'PAYROLL',
+  'SALARY_TRANSFER',
+  'BANK_ACCOUNT_COPY',
+  // 가상 컨텍스트: 서비스에서 검증엔진으로 정보를 주입할 때 사용 (실제 파일이 아님)
   'COMPANY_CONTEXT',
+  'WORKER_CONTEXT',
   'OTHER',
 ] as const;
 
@@ -37,7 +45,7 @@ export interface DocumentTypeDef {
   label: string;
 }
 
-export type RequiredDocumentStageTarget = 'COMPANY' | 'WORKER';
+export type RequiredDocumentStageTarget = 'COMPANY' | 'WORKER' | 'SUBSIDY';
 
 export interface RequiredDocumentStage {
   stage: string;

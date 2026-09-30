@@ -36,6 +36,19 @@ const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
     'companyName(사업체명), phone(전화), representativeName(대표자명), workerName(근로자명), internStartDate(인턴약정기간 시작일 YYYY-MM-DD), internEndDate(인턴약정기간 종료일 YYYY-MM-DD), hasInternKeyword(인턴/수습 또는 준하는 문구 있음: true/false), employerSignature(사업주 서명: true/false), workerSignature(근로자 서명: true/false)',
   EDUCATION_LEDGER:
     'participantName(참여자명), birthDate(생년월일 YYYY-MM-DD), educationName(교육명), educationOrg(교육기관), educationDate(교육일자 YYYY-MM-DD), participantSignature(참여자 서명 있음: true/false)',
+  // 6단계 지원금 신청 서류
+  SUBSIDY_APPLICATION:
+    'businessRegistrationNumber(사업자등록번호), companyName(사업체명), representativeName(대표자명), bankName(은행명), bankAccount(계좌번호), accountHolder(예금주), applicantCount(신청인원 숫자), totalAmount(총 신청금액 숫자), applicantSignature(대표자 서명 있음: true/false)',
+  SUBSIDY_CALCULATION:
+    'entries(인원별 산출내역 배열 — 각 항목: { name: 성명, round: 회차 숫자, periodLabel: 급여월 "YYYY-MM", baseSalary: 기본급 숫자, subsidyAmount: 신청 지원금액 숫자, subsidyType: "INTERN" 또는 "HIRE" })',
+  INSURANCE_ROSTER:
+    'businessRegistrationNumber(사업자등록번호), companyName(사업체명), entries(가입자 목록 배열 — 각 항목: { name: 성명, acquisitionDate: 취득일 YYYY-MM-DD, healthInsuranceDate: 건강보험 취득일 YYYY-MM-DD, employmentInsuranceDate: 고용보험 취득일 YYYY-MM-DD })',
+  PAYROLL:
+    'companyName(사업체명), workerName(근로자명), month(급여월 "YYYY-MM"), baseSalary(기본급 숫자), totalPay(지급합계 숫자), totalDeduction(공제합계 숫자), netPay(차감지급액 숫자)',
+  SALARY_TRANSFER:
+    'workerName(근로자명), transferAmount(이체금액 숫자), transferDate(이체일자 YYYY-MM-DD)',
+  BANK_ACCOUNT_COPY:
+    'bankName(은행명), accountHolder(예금주), accountNumber(계좌번호), isBusinessAccount(사업체 계좌 여부: true/false)',
 };
 
 const SCHEMA_HINT_ALL = [
@@ -44,6 +57,12 @@ const SCHEMA_HINT_ALL = [
   `- 운영계획서(OPERATION_PLAN): ${SCHEMA_BY_TYPE.OPERATION_PLAN}`,
   `- 4대보험 사업장 가입내역(WORKPLACE_INSURANCE): ${SCHEMA_BY_TYPE.WORKPLACE_INSURANCE}`,
   `- 사업자등록증(BUSINESS_REGISTRATION): ${SCHEMA_BY_TYPE.BUSINESS_REGISTRATION}`,
+  `- 지원금 지급신청서(SUBSIDY_APPLICATION): ${SCHEMA_BY_TYPE.SUBSIDY_APPLICATION}`,
+  `- 지원금 산출내역(SUBSIDY_CALCULATION): ${SCHEMA_BY_TYPE.SUBSIDY_CALCULATION}`,
+  `- 4대보험 가입자명부(INSURANCE_ROSTER): ${SCHEMA_BY_TYPE.INSURANCE_ROSTER}`,
+  `- 급여명세서(PAYROLL): ${SCHEMA_BY_TYPE.PAYROLL}`,
+  `- 급여 이체확인증(SALARY_TRANSFER): ${SCHEMA_BY_TYPE.SALARY_TRANSFER}`,
+  `- 통장사본(BANK_ACCOUNT_COPY): ${SCHEMA_BY_TYPE.BANK_ACCOUNT_COPY}`,
 ].join('\n');
 
 @Injectable()

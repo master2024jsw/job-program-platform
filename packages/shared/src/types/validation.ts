@@ -135,3 +135,51 @@ export interface WorkerValidationResult {
   mapped: WorkerLedgerFields;
   judgedAt: string;
 }
+
+// ──────────────────────────────────────────────
+// 6단계: 지원금신청 검증
+// ──────────────────────────────────────────────
+
+export type SubsidyValidationStatus = 'COMPLETE' | 'MISSING' | 'NEEDS_REVIEW' | 'RISK';
+
+export const SUBSIDY_VALIDATION_STATUS_LABEL: Record<SubsidyValidationStatus, string> = {
+  COMPLETE: '신청완료',
+  MISSING: '미제출',
+  NEEDS_REVIEW: '확인필요',
+  RISK: '위험',
+};
+
+/** SubsidyCalculation 회차 1건. */
+export interface SubsidyRound {
+  round: number;
+  periodLabel: string;
+  baseSalary: number;
+  calculatedAmount: number;
+  subsidyType: 'INTERN' | 'HIRE';
+}
+
+/** 근로자 1명의 지원금 회차 집계. */
+export interface WorkerSubsidyAmount {
+  workerId: string | null;
+  workerName: string;
+  rounds: SubsidyRound[];
+  total: number;
+  rules: RuleResult[];
+}
+
+/** 6단계 통합 대장 매핑값 (근로자별 회차 지원금). */
+export interface SubsidyLedgerFields {
+  totalAmount: number | null;
+  applicantCount: number | null;
+  workerSubsidies: WorkerSubsidyAmount[];
+}
+
+export interface SubsidyValidationResult {
+  companyId: string;
+  businessId: string;
+  status: SubsidyValidationStatus;
+  documents: RequiredDocPresence[];
+  rules: RuleResult[];
+  mapped: SubsidyLedgerFields;
+  judgedAt: string;
+}

@@ -1,0 +1,135 @@
+{
+  "typeCode": "SENIOR",
+  "target": "SUBSIDY",
+  "guidelineYear": 2026,
+  "source": "2026년도 현장실습 훈련 지원사업 운영안내 — 지원금 신청 서류검증(6단계)",
+  "documentFields": {
+    "SUBSIDY_APPLICATION": ["businessRegistrationNumber", "companyName", "representativeName", "bankName", "bankAccount", "accountHolder", "applicantCount", "totalAmount", "applicantSignature"],
+    "SUBSIDY_CALCULATION": ["entries"],
+    "INSURANCE_ROSTER": ["businessRegistrationNumber", "companyName", "entries"],
+    "LABOR_CONTRACT": ["companyName", "workerName", "internStartDate", "internEndDate", "baseSalary", "employerSignature", "workerSignature"],
+    "PAYROLL": ["companyName", "workerName", "month", "baseSalary", "totalPay", "totalDeduction", "netPay"],
+    "SALARY_TRANSFER": ["workerName", "transferAmount", "transferDate"],
+    "BANK_ACCOUNT_COPY": ["bankName", "accountHolder", "accountNumber", "isBusinessAccount"]
+  },
+  "companyRules": [
+    {
+      "id": "R-301",
+      "type": "crossCheck",
+      "label": "신청서 사업자번호 = 기업DB 일치 확인",
+      "field": "businessRegistrationNumber",
+      "documents": ["SUBSIDY_APPLICATION", "COMPANY_CONTEXT"],
+      "normalize": "brn",
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-301b",
+      "type": "riskFlag",
+      "label": "신청서 필수 기재·서명 확인",
+      "document": "SUBSIDY_APPLICATION",
+      "fields": ["representativeName", "bankName", "bankAccount", "accountHolder", "applicantSignature"],
+      "fieldLabels": {
+        "representativeName": "대표자명 기재",
+        "bankName": "은행명 기재",
+        "bankAccount": "계좌번호 기재",
+        "accountHolder": "예금주 기재",
+        "applicantSignature": "대표자 서명"
+      },
+      "expectedBoolean": true,
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-305",
+      "type": "calcRule",
+      "calcType": "insuranceRosterCheck",
+      "label": "가입자명부 참여자 취득·사업자 대조",
+      "document": "INSURANCE_ROSTER",
+      "entriesField": "entries",
+      "anchorDocument": "LABOR_CONTRACT",
+      "anchorField": "internStartDate",
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-308",
+      "type": "crossCheck",
+      "label": "(통장사본 제출 시) 계좌정보 신청서 일치 확인",
+      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "field": "bankAccount",
+      "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-309",
+      "type": "calcRule",
+      "calcType": "subsidyTotalCheck",
+      "label": "신청서 총 신청금액 = 산출내역 합계 일치 확인",
+      "document": "SUBSIDY_APPLICATION",
+      "totalField": "totalAmount",
+      "anchorDocument": "SUBSIDY_CALCULATION",
+      "entriesField": "entries",
+      "amountField": "subsidyAmount",
+      "onFail": "NEEDS_REVIEW"
+    }
+  ],
+  "workerRules": [
+    {
+      "id": "R-302",
+      "type": "crossCheck",
+      "label": "산출내역 성명·생년월일 = 근로자DB 일치",
+      "field": "name",
+      "documents": ["SUBSIDY_CALCULATION", "WORKER_CONTEXT"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-303",
+      "type": "calcRule",
+      "calcType": "subsidyCalc",
+      "label": "지원금 산정 검산 (인턴: min(급여×50%,40만) / 채용: min(급여×50%,50만))",
+      "document": "SUBSIDY_CALCULATION",
+      "entriesField": "entries",
+      "salaryField": "baseSalary",
+      "amountField": "subsidyAmount",
+      "typeField": "subsidyType",
+      "internMaxAmount": 400000,
+      "hireMaxAmount": 500000,
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-304",
+      "type": "calcRule",
+      "calcType": "subsidyTypeCheck",
+      "label": "신청지원금 유형·기간 = 근로계약서 인턴약정기간 일치",
+      "document": "SUBSIDY_CALCULATION",
+      "entriesField": "entries",
+      "anchorDocument": "LABOR_CONTRACT",
+      "anchorField": "internStartDate",
+      "anchorEndField": "internEndDate",
+      "typeField": "subsidyType",
+      "periodField": "periodLabel",
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-306",
+      "type": "calcRule",
+      "calcType": "salaryCompare",
+      "label": "명세서 기본급 ≥ 근로계약서 월급여 확인",
+      "document": "PAYROLL",
+      "salaryField": "baseSalary",
+      "anchorDocument": "LABOR_CONTRACT",
+      "anchorField": "baseSalary",
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-307",
+      "type": "calcRule",
+      "calcType": "salaryTransferCheck",
+      "label": "이체확인증 이체금액 = 명세서 차감지급액 일치",
+      "document": "SALARY_TRANSFER",
+      "transferField": "transferAmount",
+      "anchorDocument": "PAYROLL",
+      "netPayField": "netPay",
+      "toleranceAmount": 1000,
+      "onFail": "NEEDS_REVIEW"
+    }
+  ]
+}

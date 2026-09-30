@@ -33,6 +33,14 @@ export class SubsidyCalculation {
   @Column({ name: 'change_summary', type: 'text', nullable: true })
   changeSummary?: string | null;
 
+  /** 지원금 유형: INTERN(인턴) / HIRE(채용). 6단계에서 추가. */
+  @Column({ name: 'subsidy_type', type: 'varchar', nullable: true })
+  subsidyType?: 'INTERN' | 'HIRE' | null;
+
+  /** 회차 번호 (1, 2, 3…). 6단계에서 추가. */
+  @Column({ name: 'round', type: 'int', nullable: true })
+  round?: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

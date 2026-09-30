@@ -37,8 +37,20 @@ export interface RuleDef {
   /** riskFlag 여러 서류 동시 확인 (R-206) */
   multiDocumentChecks?: MultiDocCheck[];
   onFail?: RuleVerdict;
-  // calcRule (R-104 직종판정 / 5단계 날짜·기간 규칙)
-  calcType?: 'jobClassification' | 'internPeriodCheck' | 'dateCompare' | 'employmentHistoryDateCheck' | 'recentWorkplaceCheck';
+  // calcRule (R-104 직종판정 / 5단계 날짜·기간 규칙 / 6단계 지원금 규칙)
+  calcType?:
+    | 'jobClassification'
+    | 'internPeriodCheck'
+    | 'dateCompare'
+    | 'employmentHistoryDateCheck'
+    | 'recentWorkplaceCheck'
+    // 6단계 지원금 calcType
+    | 'subsidyCalc'
+    | 'subsidyTotalCheck'
+    | 'subsidyTypeCheck'
+    | 'insuranceRosterCheck'
+    | 'salaryCompare'
+    | 'salaryTransferCheck';
   codeField?: string;
   titleField?: string;
   lookup?: string;
@@ -63,15 +75,33 @@ export interface RuleDef {
   startDateField?: string;
   companyNameField?: string;
   daysThreshold?: number;
+  // 6단계 지원금 calcType 공통
+  entriesField?: string;
+  amountField?: string;
+  totalField?: string;
+  salaryField?: string;
+  typeField?: string;
+  periodField?: string;
+  anchorEndField?: string;
+  internMaxAmount?: number;
+  hireMaxAmount?: number;
+  transferField?: string;
+  netPayField?: string;
+  toleranceAmount?: number;
 }
 
 export interface RuleLedger {
   typeCode: string;
-  target: 'COMPANY' | 'WORKER';
+  target: 'COMPANY' | 'WORKER' | 'SUBSIDY';
   guidelineYear: number;
   source: string;
   documentFields: Partial<Record<DocumentTypeCode, string[]>>;
-  rules: RuleDef[];
+  /** COMPANY/WORKER 원장: 단일 규칙 목록 */
+  rules?: RuleDef[];
+  /** SUBSIDY 원장: 기업 단위 규칙 */
+  companyRules?: RuleDef[];
+  /** SUBSIDY 원장: 참여자(근로자) 단위 규칙 */
+  workerRules?: RuleDef[];
 }
 
 /**
@@ -109,7 +139,7 @@ export class ValidationRulesService {
     this.logger.log(`검증규칙 원장 ${this.ledgers.size}건 로드`);
   }
 
-  getLedger(typeCode: string, target: 'COMPANY' | 'WORKER'): RuleLedger | null {
+  getLedger(typeCode: string, target: 'COMPANY' | 'WORKER' | 'SUBSIDY'): RuleLedger | null {
     return this.ledgers.get(`${typeCode}:${target}`) ?? null;
   }
 }

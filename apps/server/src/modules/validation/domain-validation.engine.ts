@@ -50,7 +50,12 @@ export class DomainValidationEngine {
   constructor(private readonly jobClassificationService: JobClassificationService) {}
 
   validateWithLedger(ledger: RuleLedger, input: ExtractedByDocumentType): RuleResult[] {
-    return ledger.rules.map((rule) => this.evaluate(rule, input));
+    return (ledger.rules ?? []).map((rule) => this.evaluate(rule, input));
+  }
+
+  /** 규칙 배열을 직접 받아 실행 (6단계 companyRules/workerRules 분리 실행용). */
+  validateWithRules(rules: RuleDef[], input: ExtractedByDocumentType): RuleResult[] {
+    return rules.map((rule) => this.evaluate(rule, input));
   }
 
   private evaluate(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
@@ -206,7 +211,7 @@ export class DomainValidationEngine {
     };
   }
 
-  /** calcRule: calcType에 따라 직종판정 또는 날짜/기간 규칙을 수행. */
+  /** calcRule: calcType에 따라 직종판정 또는 날짜/기간/지원금 규칙을 수행. */
   private calcRule(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
     switch (rule.calcType ?? 'jobClassification') {
       case 'internPeriodCheck':
@@ -217,6 +222,19 @@ export class DomainValidationEngine {
         return this.employmentHistoryDateCheck(rule, input);
       case 'recentWorkplaceCheck':
         return this.recentWorkplaceCheck(rule, input);
+      // 6단계 지원금 calcType
+      case 'subsidyCalc':
+        return this.subsidyCalc(rule, input);
+      case 'subsidyTotalCheck':
+        return this.subsidyTotalCheck(rule, input);
+      case 'subsidyTypeCheck':
+        return this.subsidyTypeCheck(rule, input);
+      case 'insuranceRosterCheck':
+        return this.insuranceRosterCheck(rule, input);
+      case 'salaryCompare':
+        return this.salaryCompare(rule, input);
+      case 'salaryTransferCheck':
+        return this.salaryTransferCheck(rule, input);
       case 'jobClassification':
       default:
         return this.jobClassificationCalc(rule, input);
@@ -405,6 +423,222 @@ export class DomainValidationEngine {
           ? `모든 이전 직장(${workplaces.length}건) 상실일이 근로시작일(${String(anchorVal)}) 이전 — 정상.`
           : `상실일 미확인 또는 근로시작일 이후인 이력 ${problematic.length}건 — 이중취득 위험, 담당자 확인.`,
       evidence: { anchor: String(anchorVal), total: workplaces.length, problematic },
+    };
+  }
+
+  // ── 6단계 지원금 calcType ──────────────────────────────────────────────
+
+  /** R-303: 회차별 지원금 산정 검산. min(급여×50%, max) 공식. */
+  private subsidyCalc(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const entries = data ? (data[rule.entriesField ?? 'entries'] as unknown[]) : null;
+    if (!entries?.length) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: '산출내역 항목을 추출하지 못했습니다 — 담당자 확인.',
+      };
+    }
+    const internMax = rule.internMaxAmount ?? 400000;
+    const hireMax = rule.hireMaxAmount ?? 500000;
+    const mismatches: unknown[] = [];
+    let totalCalc = 0;
+    for (const e of entries) {
+      const entry = e as Record<string, unknown>;
+      const salary = Number(entry[rule.salaryField ?? 'baseSalary'] ?? 0);
+      const declared = Number(entry[rule.amountField ?? 'subsidyAmount'] ?? 0);
+      const typeStr = String(entry[rule.typeField ?? 'subsidyType'] ?? '').toLowerCase();
+      const isHire = typeStr.includes('채용') || typeStr === 'hire';
+      const maxAmt = isHire ? hireMax : internMax;
+      const calculated = Math.min(Math.round(salary * 0.5), maxAmt);
+      totalCalc += calculated;
+      if (Math.abs(declared - calculated) > (rule.toleranceAmount ?? 0)) {
+        mismatches.push({ round: entry.round, periodLabel: entry.periodLabel, salary, declared, calculated, subsidyType: typeStr });
+      }
+    }
+    return {
+      ruleId: rule.id, type: rule.type, label: rule.label,
+      verdict: mismatches.length === 0 ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: mismatches.length === 0
+        ? `전 회차(${entries.length}건) 지원금 산정 정상. 합계 ${totalCalc.toLocaleString()}원.`
+        : `산정 불일치 ${mismatches.length}건 — 담당자 확인.`,
+      evidence: { total: entries.length, totalCalc, mismatches },
+    };
+  }
+
+  /** R-309: 신청서 총 신청금액 = 산출내역 회차 합계 일치. */
+  private subsidyTotalCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const appData = input[doc];
+    const calcData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const totalDeclared = appData ? Number(appData[rule.totalField ?? 'totalAmount'] ?? 0) : 0;
+    const entries = calcData ? (calcData[rule.entriesField ?? 'entries'] as unknown[]) : null;
+    const totalCalc = entries?.reduce((sum: number, e) => sum + Number((e as Record<string, unknown>)[rule.amountField ?? 'subsidyAmount'] ?? 0), 0) ?? 0;
+    const tolerance = rule.toleranceAmount ?? 0;
+    const match = Math.abs(totalDeclared - totalCalc) <= tolerance;
+    return {
+      ruleId: rule.id, type: rule.type, label: rule.label,
+      verdict: match ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: match
+        ? `신청금액(${totalDeclared.toLocaleString()}) = 산출내역 합계(${totalCalc.toLocaleString()}) — 일치.`
+        : `신청금액(${totalDeclared.toLocaleString()}) ≠ 산출내역 합계(${totalCalc.toLocaleString()}) — 담당자 확인.`,
+      evidence: { totalDeclared, totalCalc, entries: entries?.length ?? 0 },
+    };
+  }
+
+  /** R-304: 신청지원금 유형·기간이 근로계약서와 일치하는지 확인. */
+  private subsidyTypeCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const entries = data ? (data[rule.entriesField ?? 'entries'] as unknown[]) : null;
+    if (!entries?.length) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: '산출내역 항목을 추출하지 못했습니다 — 담당자 확인.',
+      };
+    }
+    const contractStart = anchorData ? parseDate(anchorData[rule.anchorField ?? 'internStartDate']) : null;
+    const contractEnd = anchorData ? parseDate(anchorData[rule.anchorEndField ?? 'internEndDate']) : null;
+    if (!contractStart) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: '근로계약서 인턴약정기간을 확인할 수 없습니다 — 담당자 확인.',
+      };
+    }
+    // 인턴 회차 기간이 계약 기간 내에 있는지 확인
+    const issues: unknown[] = [];
+    for (const e of entries) {
+      const entry = e as Record<string, unknown>;
+      const period = String(entry[rule.periodField ?? 'periodLabel'] ?? '');
+      const periodMonth = parseDate(period.length <= 7 ? `${period}-01` : period);
+      if (periodMonth && contractEnd && periodMonth > contractEnd) {
+        issues.push({ round: entry.round, periodLabel: period, reason: '계약종료일 이후 월' });
+      }
+      if (periodMonth && periodMonth < contractStart) {
+        issues.push({ round: entry.round, periodLabel: period, reason: '계약시작일 이전 월' });
+      }
+    }
+    return {
+      ruleId: rule.id, type: rule.type, label: rule.label,
+      verdict: issues.length === 0 ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: issues.length === 0
+        ? `전 회차 급여월이 인턴약정기간(${String(anchorData?.[rule.anchorField ?? 'internStartDate'] ?? '')}~${String(anchorData?.[rule.anchorEndField ?? 'internEndDate'] ?? '')}) 내 — 정상.`
+        : `약정기간 외 급여월 ${issues.length}건 — 담당자 확인.`,
+      evidence: { contractStart: String(anchorData?.[rule.anchorField ?? 'internStartDate'] ?? ''), contractEnd: String(anchorData?.[rule.anchorEndField ?? 'internEndDate'] ?? ''), issues },
+    };
+  }
+
+  /** R-305: 가입자명부 참여자 취득일·사업자번호 대조. */
+  private insuranceRosterCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const ctxData = input['COMPANY_CONTEXT' as DocumentTypeCode];
+    if (!data) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: '가입자명부 서류가 없거나 추출 불가 — 담당자 확인.',
+      };
+    }
+    const entries = data[rule.entriesField ?? 'entries'] as unknown[] | undefined;
+    const rosterBrn = normalizeBrn(data.businessRegistrationNumber);
+    const ctxBrn = ctxData ? normalizeBrn(ctxData.businessRegistrationNumber) : null;
+    const internStart = anchorData ? parseDate(anchorData[rule.anchorField ?? 'internStartDate']) : null;
+    const issues: unknown[] = [];
+    // 사업자번호 불일치
+    if (rosterBrn && ctxBrn && rosterBrn !== ctxBrn) {
+      issues.push({ type: 'brnMismatch', roster: rosterBrn, company: ctxBrn });
+    }
+    // 참여자명 확인 (WORKER_CONTEXT에서 이름 가져옴)
+    const workerCtx = input['WORKER_CONTEXT' as DocumentTypeCode];
+    const workerName = workerCtx ? String(workerCtx.name ?? '').trim() : null;
+    if (workerName && entries?.length) {
+      const found = (entries as Record<string, unknown>[]).some((e) =>
+        String(e.name ?? '').replace(/\s/g, '') === workerName.replace(/\s/g, ''),
+      );
+      if (!found) issues.push({ type: 'workerNotFound', name: workerName });
+      else {
+        // 취득일 = 근로시작일 확인
+        const entry = (entries as Record<string, unknown>[]).find(
+          (e) => String(e.name ?? '').replace(/\s/g, '') === workerName.replace(/\s/g, ''),
+        )!;
+        const acqDate = parseDate(entry.acquisitionDate ?? entry.healthInsuranceDate ?? entry.employmentInsuranceDate);
+        if (internStart && acqDate && Math.abs(acqDate.getTime() - internStart.getTime()) > 86400000 * 3) {
+          issues.push({ type: 'acquisitionDateMismatch', workerName, acq: String(entry.acquisitionDate ?? ''), internStart: String(anchorData?.[rule.anchorField ?? 'internStartDate'] ?? '') });
+        }
+      }
+    }
+    return {
+      ruleId: rule.id, type: rule.type, label: rule.label,
+      verdict: issues.length === 0 ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: issues.length === 0
+        ? `가입자명부 사업자번호·참여자 취득일 확인 — 정상.`
+        : `가입자명부 확인 필요(${issues.map((i) => (i as Record<string, unknown>).type).join(', ')}) — 담당자 확인.`,
+      evidence: { rosterBrn, ctxBrn, workerName, issues },
+    };
+  }
+
+  /** R-306: 명세서 기본급 ≥ 근로계약서 월급여. */
+  private salaryCompare(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const payrollSalary = data ? Number(data[rule.salaryField ?? 'baseSalary'] ?? 0) : 0;
+    const contractSalary = anchorData ? Number(anchorData[rule.anchorField ?? 'baseSalary'] ?? 0) : 0;
+    if (!payrollSalary || !contractSalary) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `급여 정보를 추출하지 못했습니다 (명세서: ${payrollSalary || '없음'}, 계약서: ${contractSalary || '없음'}) — 담당자 확인.`,
+        evidence: { payrollSalary, contractSalary },
+      };
+    }
+    const ok = payrollSalary >= contractSalary;
+    return {
+      ruleId: rule.id, type: rule.type, label: rule.label,
+      verdict: ok ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: ok
+        ? `명세서 기본급(${payrollSalary.toLocaleString()}) ≥ 계약 월급여(${contractSalary.toLocaleString()}) — 정상.`
+        : `명세서 기본급(${payrollSalary.toLocaleString()}) < 계약 월급여(${contractSalary.toLocaleString()}) — 임금 부족, 담당자 확인.`,
+      evidence: { payrollSalary, contractSalary },
+    };
+  }
+
+  /** R-307: 이체확인증 이체금액 = 명세서 차감지급액(netPay). */
+  private salaryTransferCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const transferAmt = data ? Number(data[rule.transferField ?? 'transferAmount'] ?? 0) : 0;
+    // netPay 또는 totalPay - totalDeduction 계산
+    let netPay = anchorData ? Number(anchorData[rule.netPayField ?? 'netPay'] ?? 0) : 0;
+    if (!netPay && anchorData) {
+      const total = Number(anchorData.totalPay ?? 0);
+      const deduction = Number(anchorData.totalDeduction ?? 0);
+      if (total && deduction) netPay = total - deduction;
+    }
+    const tolerance = rule.toleranceAmount ?? 1000;
+    if (!transferAmt || !netPay) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `이체금액 또는 차감지급액을 추출하지 못했습니다 — 담당자 확인.`,
+        evidence: { transferAmt, netPay },
+      };
+    }
+    const match = Math.abs(transferAmt - netPay) <= tolerance;
+    return {
+      ruleId: rule.id, type: rule.type, label: rule.label,
+      verdict: match ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: match
+        ? `이체금액(${transferAmt.toLocaleString()}) = 차감지급액(${netPay.toLocaleString()}) — 일치.`
+        : `이체금액(${transferAmt.toLocaleString()}) ≠ 차감지급액(${netPay.toLocaleString()}) — 불일치, 담당자 확인.`,
+      evidence: { transferAmt, netPay, diff: Math.abs(transferAmt - netPay) },
     };
   }
 

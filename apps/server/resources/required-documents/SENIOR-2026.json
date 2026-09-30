@@ -26,9 +26,18 @@
     },
     {
       "stage": "SUBSIDY_VERIFICATION",
-      "label": "지원금 신청 서류검증(일반형)",
-      "target": "WORKER",
-      "documents": ["PAYSLIP", "EMPLOYMENT_CONTRACT", "ATTENDANCE_RECORD"]
+      "label": "지원금 신청 서류검증(일반형, 6단계)",
+      "target": "SUBSIDY",
+      "documents": [
+        "SUBSIDY_APPLICATION",
+        "SUBSIDY_CALCULATION",
+        "INSURANCE_ROSTER",
+        "LABOR_CONTRACT",
+        "PAYROLL",
+        "SALARY_TRANSFER",
+        "BANK_ACCOUNT_COPY"
+      ],
+      "optional": ["BANK_ACCOUNT_COPY"]
     }
   ]
 }
