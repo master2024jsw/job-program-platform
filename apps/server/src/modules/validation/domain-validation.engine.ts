@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { DocumentTypeCode, RuleResult, RuleVerdict } from '@job-program/shared';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
 import { JobClassificationService } from './job-classification.service';
-import type { RuleDef, RuleLedger } from './validation-rules.service';
+import type { MultiDocCheck, RuleDef, RuleLedger } from './validation-rules.service';
 
 /** 사업자등록번호 정규화: 숫자 10자리 → 000-00-00000. 형식이 안 맞으면 null. */
 function normalizeBrn(raw: unknown): string | null {
@@ -14,16 +14,36 @@ function normalizeBrn(raw: unknown): string | null {
 
 function isAffirmative(value: unknown): boolean {
   if (value === true) return true;
+  if (value === false || value == null) return false;
   if (typeof value === 'string') {
-    return /^(예|y|yes|true|동의|가입|○|O|ㅇ)$/i.test(value.trim());
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    // 명시적 부정값은 false
+    if (/^(아니요|no|false|미가입|×|x)$/i.test(trimmed)) return false;
+    // 명시적 긍정값 또는 비어있지 않은 텍스트(성명·기관명 등) = 기재됨
+    return true;
   }
   return false;
 }
 
+/** YYYY-MM-DD 또는 YYYYMMDD 등 다양한 날짜 문자열을 Date로 파싱. 실패하면 null. */
+function parseDate(raw: unknown): Date | null {
+  if (!raw) return null;
+  const s = String(raw).trim().replace(/\./g, '-').replace(/\//g, '-');
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 두 날짜 간 개월 수 차이 (끝 - 시작, 소수 가능). */
+function monthDiff(start: Date, end: Date): number {
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + (end.getDate() - start.getDate()) / 31;
+}
+
 /**
  * 도메인 검증 엔진 — 규칙 유형별 핸들러.
- * 규칙 파라미터는 원장(RuleLedger)에서, 직종 판정값은 job-classifications.json 에서 로드한다(하드코딩 X).
- * crossCheck / riskFlag / calcRule 구현. exceptionRule 은 5·6단계에서 확장(현재는 스킵).
+ * 규칙 파라미터는 원장(RuleLedger)에서 로드한다(하드코딩 X).
+ * crossCheck / riskFlag / calcRule 구현.
+ * 5단계 확장: skipIfMissing, optionalDocuments, multiDocumentChecks, calcType(날짜 규칙).
  */
 @Injectable()
 export class DomainValidationEngine {
@@ -34,6 +54,17 @@ export class DomainValidationEngine {
   }
 
   private evaluate(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    // skipIfMissing: 나열 서류 중 하나라도 없으면 PASS로 스킵 (선택서류 규칙)
+    if (rule.skipIfMissing?.some((doc) => !input[doc])) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'PASS',
+        message: `선택서류(${rule.skipIfMissing.join(', ')}) 미제출 — 이 규칙 스킵.`,
+      };
+    }
+
     switch (rule.type) {
       case 'crossCheck':
         return this.crossCheck(rule, input);
@@ -43,7 +74,6 @@ export class DomainValidationEngine {
         return this.calcRule(rule, input);
       case 'exceptionRule':
       default:
-        // TODO(다음지시서): exceptionRule(법인전환·통장압류)은 6단계에서 구현.
         return {
           ruleId: rule.id,
           type: rule.type,
@@ -54,10 +84,16 @@ export class DomainValidationEngine {
     }
   }
 
-  /** R-101: 여러 서류의 같은 필드값이 일치하는지. */
+  /** crossCheck: 여러 서류의 같은 필드값이 일치하는지. optionalDocuments는 있으면 포함. */
   private crossCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
     const field = rule.field!;
-    const docs = rule.documents ?? [];
+
+    // 필수 서류 목록
+    const requiredDocs = rule.documents ?? [];
+    // 선택 서류: input에 있는 것만 포함
+    const optDocs = (rule.optionalDocuments ?? []).filter((doc) => !!input[doc]);
+    const docs = [...requiredDocs, ...optDocs];
+
     const collected: { doc: DocumentTypeCode; raw: unknown; norm: string | null; present: boolean }[] = docs.map(
       (doc) => {
         const data = input[doc];
@@ -94,8 +130,13 @@ export class DomainValidationEngine {
     };
   }
 
-  /** R-102/R-103: 특정 서류의 필드가 기대값을 만족하는지. */
+  /** riskFlag: 특정 서류 필드가 기대값을 충족하는지. multiDocumentChecks로 다수 서류 동시 확인 가능. */
   private riskFlag(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    // R-206 등: 여러 서류를 동시에 확인
+    if (rule.multiDocumentChecks?.length) {
+      return this.multiRiskFlag(rule, input);
+    }
+
     const doc = rule.document!;
     const data = input[doc];
     const fields = rule.fields ?? [];
@@ -132,8 +173,58 @@ export class DomainValidationEngine {
     };
   }
 
-  /** R-104: 모집직종 코드 → 직종분류표 조회 → 가능/제외/담당자확인. */
+  /** multiRiskFlag: 여러 서류의 필드를 한 번에 확인 (R-206). */
+  private multiRiskFlag(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const allFailed: { document: DocumentTypeCode; field: string; label: string; ok: boolean }[] = [];
+
+    for (const check of rule.multiDocumentChecks as MultiDocCheck[]) {
+      const data = input[check.document];
+      if (!data) {
+        // 서류 자체가 없으면 해당 서류의 모든 필드 실패로 처리
+        for (const f of check.fields) {
+          allFailed.push({ document: check.document, field: f, label: (check.fieldLabels ?? {})[f] ?? f, ok: false });
+        }
+        continue;
+      }
+      for (const f of check.fields) {
+        const value = data[f];
+        const ok = check.expectedBoolean ? isAffirmative(value) : String(value ?? '').trim() === check.expected;
+        if (!ok) allFailed.push({ document: check.document, field: f, label: (check.fieldLabels ?? {})[f] ?? f, ok: false });
+      }
+    }
+
+    return {
+      ruleId: rule.id,
+      type: rule.type,
+      label: rule.label,
+      verdict: allFailed.length === 0 ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message:
+        allFailed.length === 0
+          ? '모든 서류의 서명·기재 항목을 확인했습니다.'
+          : `미확인 항목: ${allFailed.map((f) => `${f.document}·${f.label}`).join(', ')} (담당자 확인).`,
+      evidence: { failed: allFailed },
+    };
+  }
+
+  /** calcRule: calcType에 따라 직종판정 또는 날짜/기간 규칙을 수행. */
   private calcRule(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    switch (rule.calcType ?? 'jobClassification') {
+      case 'internPeriodCheck':
+        return this.internPeriodCheck(rule, input);
+      case 'dateCompare':
+        return this.dateCompare(rule, input);
+      case 'employmentHistoryDateCheck':
+        return this.employmentHistoryDateCheck(rule, input);
+      case 'recentWorkplaceCheck':
+        return this.recentWorkplaceCheck(rule, input);
+      case 'jobClassification':
+      default:
+        return this.jobClassificationCalc(rule, input);
+    }
+  }
+
+  /** R-104: 모집직종 코드 → 직종분류표 조회 → 가능/제외/담당자확인. */
+  private jobClassificationCalc(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
     const doc = rule.document!;
     const data = input[doc];
     const code = data ? (data[rule.codeField!] as string | undefined) : undefined;
@@ -143,7 +234,6 @@ export class DomainValidationEngine {
 
     const hit = this.jobClassificationService.lookup(code);
     if (!hit) {
-      // 코드가 없거나 표에 없으면 임의 통과 금지 → 담당자확인 보류.
       return {
         ruleId: rule.id,
         type: rule.type,
@@ -165,6 +255,223 @@ export class DomainValidationEngine {
       verdict,
       message: `모집직종 ${hit.jobName}(${hit.code}) → ${eligibilityLabel}${hit.detail ? ` · 조건: ${hit.detail}` : ''}`,
       evidence: { code: hit.code, jobName: hit.jobName, judgment: hit.judgment, eligibilityLabel, detail: hit.detail ?? null },
+    };
+  }
+
+  /** R-205: 근로계약서 인턴약정기간 1~3개월 및 인턴/수습 문구 확인. */
+  private internPeriodCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+
+    if (!data) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `${doc} 서류가 없어 확인할 수 없습니다.`,
+      };
+    }
+
+    const startDate = parseDate(data[rule.startField!]);
+    const endDate = parseDate(data[rule.endField!]);
+
+    if (!startDate || !endDate) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `인턴약정기간 날짜를 추출하지 못했습니다 (시작: ${data[rule.startField!] ?? '없음'}, 종료: ${data[rule.endField!] ?? '없음'}).`,
+        evidence: { start: data[rule.startField!] ?? null, end: data[rule.endField!] ?? null },
+      };
+    }
+
+    const hasKeyword = rule.internKeywordField ? isAffirmative(data[rule.internKeywordField]) : true;
+    const months = monthDiff(startDate, endDate);
+    const min = rule.monthsMin ?? 1;
+    const max = rule.monthsMax ?? 3;
+    const inRange = months >= min && months <= max;
+
+    const startStr = data[rule.startField!] as string;
+    const endStr = data[rule.endField!] as string;
+
+    if (!hasKeyword || !inRange) {
+      const reason = [!hasKeyword ? '인턴/수습 문구 미확인' : null, !inRange ? `기간 ${months.toFixed(1)}개월(${min}~${max}개월 범위 외)` : null]
+        .filter(Boolean)
+        .join(', ');
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `인턴약정기간 검증 실패: ${reason} — 담당자 확인.`,
+        evidence: { start: startStr, end: endStr, months: +months.toFixed(1), hasKeyword },
+      };
+    }
+
+    return {
+      ruleId: rule.id,
+      type: rule.type,
+      label: rule.label,
+      verdict: 'PASS',
+      message: `인턴약정기간 ${months.toFixed(1)}개월 (${startStr} ~ ${endStr}), 인턴/수습 문구 확인됨.`,
+      evidence: { start: startStr, end: endStr, months: +months.toFixed(1), hasKeyword },
+    };
+  }
+
+  /** R-208: 교육일자 ≥ 근로시작일 (날짜 대소 비교). */
+  private dateCompare(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+
+    const dateVal = data ? data[rule.dateField!] : null;
+    const anchorVal = anchorData ? anchorData[rule.anchorField!] : null;
+
+    const date = parseDate(dateVal);
+    const anchor = parseDate(anchorVal);
+
+    if (!date || !anchor) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `날짜를 추출하지 못했습니다 (대상: ${dateVal ?? '없음'}, 기준: ${anchorVal ?? '없음'}).`,
+        evidence: { date: dateVal ?? null, anchor: anchorVal ?? null },
+      };
+    }
+
+    const pass = rule.dateRelation === 'onOrAfter' ? date >= anchor : date < anchor;
+    const symbol = rule.dateRelation === 'onOrAfter' ? '≥' : '<';
+    return {
+      ruleId: rule.id,
+      type: rule.type,
+      label: rule.label,
+      verdict: pass ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message: pass
+        ? `${String(dateVal)} ${symbol} ${String(anchorVal)} — 정상.`
+        : `${String(dateVal)}이 기준일(${String(anchorVal)})보다 이전입니다 — 담당자 확인.`,
+      evidence: { date: String(dateVal), anchor: String(anchorVal), relation: rule.dateRelation },
+    };
+  }
+
+  /** R-203: 고용보험이력의 모든 사업장 상실일이 근로시작일 이전인지 확인. */
+  private employmentHistoryDateCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const anchorVal = anchorData ? anchorData[rule.anchorField!] : null;
+    const anchor = parseDate(anchorVal);
+
+    if (!anchor) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'NEEDS_REVIEW',
+        message: `근로시작일을 확인할 수 없습니다 (${String(anchorVal ?? '없음')}) — 담당자 확인.`,
+      };
+    }
+
+    const workplaces = data ? (data[rule.workplacesField!] as unknown[]) : null;
+    if (!workplaces?.length) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'NEEDS_REVIEW',
+        message: '고용보험 이력 항목을 추출하지 못했습니다 — 담당자 확인.',
+      };
+    }
+
+    const problematic: unknown[] = [];
+    for (const wp of workplaces) {
+      const w = wp as Record<string, unknown>;
+      const lossDate = parseDate(w[rule.lossDateField ?? 'lossDate']);
+      if (!lossDate || lossDate >= anchor) {
+        problematic.push({ companyName: w.companyName ?? '?', lossDate: w[rule.lossDateField ?? 'lossDate'] ?? '없음' });
+      }
+    }
+
+    return {
+      ruleId: rule.id,
+      type: rule.type,
+      label: rule.label,
+      verdict: problematic.length === 0 ? 'PASS' : rule.onFail ?? 'NEEDS_REVIEW',
+      message:
+        problematic.length === 0
+          ? `모든 이전 직장(${workplaces.length}건) 상실일이 근로시작일(${String(anchorVal)}) 이전 — 정상.`
+          : `상실일 미확인 또는 근로시작일 이후인 이력 ${problematic.length}건 — 이중취득 위험, 담당자 확인.`,
+      evidence: { anchor: String(anchorVal), total: workplaces.length, problematic },
+    };
+  }
+
+  /** R-204: 근로시작일 기준 N일 이내 참여기업과 동일 사업장 근무 이력 확인. */
+  private recentWorkplaceCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = rule.document!;
+    const data = input[doc];
+    const anchorData = rule.anchorDocument ? input[rule.anchorDocument] : null;
+    const ctxData = input['COMPANY_CONTEXT' as DocumentTypeCode];
+
+    const anchorVal = anchorData ? anchorData[rule.anchorField!] : null;
+    const anchor = parseDate(anchorVal);
+    const companyName = ctxData ? String(ctxData.companyName ?? '').trim() : null;
+
+    if (!anchor || !companyName) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'NEEDS_REVIEW',
+        message: `근로시작일 또는 참여기업명을 확인할 수 없습니다 — 담당자 확인.`,
+      };
+    }
+
+    const workplaces = data ? (data[rule.workplacesField!] as unknown[]) : null;
+    if (!workplaces?.length) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'PASS',
+        message: '고용보험 이력이 없거나 추출 불가 — 이 규칙 스킵.',
+      };
+    }
+
+    const threshold = rule.daysThreshold ?? 90;
+    const normalize = (s: string) => s.replace(/[\s㈜(주)]/g, '').toLowerCase();
+    const ctxNorm = normalize(companyName);
+
+    const recentMatches: unknown[] = [];
+    for (const wp of workplaces) {
+      const w = wp as Record<string, unknown>;
+      const wpName = normalize(String(w[rule.companyNameField ?? 'companyName'] ?? ''));
+      if (!wpName || (!wpName.includes(ctxNorm) && !ctxNorm.includes(wpName))) continue;
+
+      // 사업장과 참여기업 이름이 유사 → 90일 이내인지 확인
+      const lossDate = parseDate(w[rule.lossDateField ?? 'lossDate']);
+      const startDate = parseDate(w[rule.startDateField ?? 'startDate']);
+      const refDate = lossDate ?? anchor; // 상실일 없으면 아직 재직 중
+      const dayDiff = (anchor.getTime() - refDate.getTime()) / (1000 * 60 * 60 * 24);
+      const withinThreshold = dayDiff >= -1 && dayDiff <= threshold; // refDate가 anchor 이전 threshold일 이내
+      const _ = startDate; // 사용하지 않지만 참조용
+      if (withinThreshold) {
+        recentMatches.push({ companyName: w.companyName, lossDate: w[rule.lossDateField ?? 'lossDate'] });
+      }
+    }
+
+    return {
+      ruleId: rule.id,
+      type: rule.type,
+      label: rule.label,
+      verdict: recentMatches.length === 0 ? 'PASS' : rule.onFail ?? 'FAIL',
+      message:
+        recentMatches.length === 0
+          ? `${threshold}일 이내 참여기업(${companyName}) 동일 사업장 근무 이력 없음 — 정상.`
+          : `${companyName}에서 근로시작일 기준 ${threshold}일 이내 근무 이력 발견 — 제외사유(담당자 확인).`,
+      evidence: { anchor: String(anchorVal), companyName, threshold, recentMatches },
     };
   }
 }

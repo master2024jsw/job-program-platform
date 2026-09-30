@@ -40,6 +40,20 @@ export class WorkersController {
     res.send(buffer);
   }
 
+  /** '2026년 참여자관리' 대장 형식 내보내기 (5단계 승인 결과 반영). */
+  @Get('ledger/export')
+  async exportLedger(
+    @Query('businessId') businessId: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.workersService.exportLedger(businessId);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="2026%EB%85%84_%EC%B0%B8%EC%97%AC%EC%9E%90%EA%B4%80%EB%A6%AC.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   @Post('import')
   @UseInterceptors(FileInterceptor('file'))
   async import(

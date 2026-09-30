@@ -57,6 +57,14 @@ export class Worker {
   @Column({ type: 'text', nullable: true })
   memo?: string | null;
 
+  /** 인턴십 종료 예정일 (5단계 승인 시 반영). */
+  @Column({ name: 'intern_end_date', type: 'varchar', nullable: true })
+  internEndDate?: string | null;
+
+  /** 계속고용 전환일 (세대통합형 6단계 지원금 검증용). */
+  @Column({ name: 'continuous_hire_date', type: 'varchar', nullable: true })
+  continuousHireDate?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

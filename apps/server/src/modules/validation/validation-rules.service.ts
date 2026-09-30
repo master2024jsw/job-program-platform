@@ -5,14 +5,27 @@ import type { DocumentTypeCode, RuleVerdict, ValidationRuleType } from '@job-pro
 
 const resourcesDir = path.join(process.cwd(), 'resources');
 
+/** riskFlag multiDocumentChecks 항목 1건. */
+export interface MultiDocCheck {
+  document: DocumentTypeCode;
+  fields: string[];
+  fieldLabels?: Record<string, string>;
+  expectedBoolean?: boolean;
+  expected?: string;
+}
+
 /** 규칙 원장 한 건 (validation-rules/*.json). 유형별로 파라미터 형태가 다르다. */
 export interface RuleDef {
   id: string;
   type: ValidationRuleType;
   label: string;
+  // 선택서류 skipIfMissing: 나열된 서류 중 하나라도 없으면 이 규칙을 PASS로 스킵 (선택서류 규칙에 사용)
+  skipIfMissing?: DocumentTypeCode[];
   // crossCheck
   field?: string;
   documents?: DocumentTypeCode[];
+  /** crossCheck 전용: 있으면 포함, 없으면 건너뜀 */
+  optionalDocuments?: DocumentTypeCode[];
   normalize?: 'brn';
   onMismatch?: RuleVerdict;
   // riskFlag
@@ -21,14 +34,35 @@ export interface RuleDef {
   fieldLabels?: Record<string, string>;
   expected?: string;
   expectedBoolean?: boolean;
+  /** riskFlag 여러 서류 동시 확인 (R-206) */
+  multiDocumentChecks?: MultiDocCheck[];
   onFail?: RuleVerdict;
-  // calcRule (R-104)
+  // calcRule (R-104 직종판정 / 5단계 날짜·기간 규칙)
+  calcType?: 'jobClassification' | 'internPeriodCheck' | 'dateCompare' | 'employmentHistoryDateCheck' | 'recentWorkplaceCheck';
   codeField?: string;
   titleField?: string;
   lookup?: string;
   verdictMap?: Record<string, RuleVerdict>;
   eligibilityLabelMap?: Record<string, string>;
   onMissing?: RuleVerdict;
+  // calcRule 날짜 공통: 기준 날짜(앵커)
+  anchorDocument?: DocumentTypeCode;
+  anchorField?: string;
+  // internPeriodCheck (R-205)
+  startField?: string;
+  endField?: string;
+  internKeywordField?: string;
+  monthsMin?: number;
+  monthsMax?: number;
+  // dateCompare (R-208)
+  dateField?: string;
+  dateRelation?: 'before' | 'onOrAfter';
+  // employmentHistoryDateCheck / recentWorkplaceCheck (R-203, R-204)
+  workplacesField?: string;
+  lossDateField?: string;
+  startDateField?: string;
+  companyNameField?: string;
+  daysThreshold?: number;
 }
 
 export interface RuleLedger {

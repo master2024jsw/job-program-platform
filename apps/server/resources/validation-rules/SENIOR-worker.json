@@ -1,0 +1,161 @@
+{
+  "typeCode": "SENIOR",
+  "target": "WORKER",
+  "guidelineYear": 2026,
+  "source": "2026년도 현장실습 훈련 지원사업 운영안내 — 참여자 적격 확인(5단계)",
+  "documentFields": {
+    "WORKER_APPLICATION": ["name", "residentNumber", "phone", "applicantSignature", "counselorName"],
+    "PRIVACY_CONSENT": ["allConsentsChecked", "applicantSignature"],
+    "RESIDENT_ABSTRACT": ["name", "residentNumber"],
+    "EMPLOYMENT_INSURANCE_HISTORY": ["name", "birthDate", "workplaces"],
+    "ELIGIBILITY_CONFIRM": ["item1None", "item2None", "item3None", "item4None", "item5None", "item6Yes", "applicantSignature", "companyStaffSignature"],
+    "LABOR_CONTRACT": ["companyName", "phone", "representativeName", "workerName", "internStartDate", "internEndDate", "hasInternKeyword", "employerSignature", "workerSignature"],
+    "EDUCATION_LEDGER": ["participantName", "birthDate", "educationName", "educationOrg", "educationDate", "participantSignature"]
+  },
+  "rules": [
+    {
+      "id": "R-201",
+      "type": "crossCheck",
+      "label": "초본·신청서 성명 일치",
+      "skipIfMissing": ["RESIDENT_ABSTRACT"],
+      "field": "name",
+      "documents": ["WORKER_APPLICATION", "RESIDENT_ABSTRACT"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-202",
+      "type": "crossCheck",
+      "label": "고용보험이력·신청서 성명 일치",
+      "skipIfMissing": ["EMPLOYMENT_INSURANCE_HISTORY"],
+      "field": "name",
+      "documents": ["WORKER_APPLICATION", "EMPLOYMENT_INSURANCE_HISTORY"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-203",
+      "type": "calcRule",
+      "calcType": "employmentHistoryDateCheck",
+      "label": "고용보험이력 상실일 < 근로시작일 (이중취득 위험 확인)",
+      "skipIfMissing": ["EMPLOYMENT_INSURANCE_HISTORY"],
+      "document": "EMPLOYMENT_INSURANCE_HISTORY",
+      "workplacesField": "workplaces",
+      "lossDateField": "lossDate",
+      "anchorDocument": "LABOR_CONTRACT",
+      "anchorField": "internStartDate",
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-204",
+      "type": "calcRule",
+      "calcType": "recentWorkplaceCheck",
+      "label": "근로시작일 기준 90일 이내 참여기업 동일 사업장 근무 여부 (제외사유)",
+      "skipIfMissing": ["EMPLOYMENT_INSURANCE_HISTORY"],
+      "document": "EMPLOYMENT_INSURANCE_HISTORY",
+      "workplacesField": "workplaces",
+      "companyNameField": "companyName",
+      "startDateField": "startDate",
+      "lossDateField": "lossDate",
+      "anchorDocument": "LABOR_CONTRACT",
+      "anchorField": "internStartDate",
+      "daysThreshold": 90,
+      "onFail": "FAIL"
+    },
+    {
+      "id": "R-205",
+      "type": "calcRule",
+      "calcType": "internPeriodCheck",
+      "label": "인턴약정기간·수습 문구 확인 및 기간 1~3개월 이내",
+      "document": "LABOR_CONTRACT",
+      "startField": "internStartDate",
+      "endField": "internEndDate",
+      "internKeywordField": "hasInternKeyword",
+      "monthsMin": 1,
+      "monthsMax": 3,
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-206",
+      "type": "riskFlag",
+      "label": "서명·기재 존재 확인 (신청서·동의서·적격확인서·근로계약서·교육대장)",
+      "multiDocumentChecks": [
+        {
+          "document": "WORKER_APPLICATION",
+          "fields": ["applicantSignature", "counselorName"],
+          "fieldLabels": { "applicantSignature": "신청인 서명", "counselorName": "상담자 성명 기재" },
+          "expectedBoolean": true
+        },
+        {
+          "document": "PRIVACY_CONSENT",
+          "fields": ["allConsentsChecked", "applicantSignature"],
+          "fieldLabels": { "allConsentsChecked": "동의항목 체크", "applicantSignature": "신청인 서명" },
+          "expectedBoolean": true
+        },
+        {
+          "document": "ELIGIBILITY_CONFIRM",
+          "fields": ["applicantSignature", "companyStaffSignature"],
+          "fieldLabels": { "applicantSignature": "신청인 서명", "companyStaffSignature": "기업담당자 서명" },
+          "expectedBoolean": true
+        },
+        {
+          "document": "LABOR_CONTRACT",
+          "fields": ["employerSignature", "workerSignature"],
+          "fieldLabels": { "employerSignature": "사업주 서명", "workerSignature": "근로자 서명" },
+          "expectedBoolean": true
+        },
+        {
+          "document": "EDUCATION_LEDGER",
+          "fields": ["participantSignature"],
+          "fieldLabels": { "participantSignature": "참여자 서명" },
+          "expectedBoolean": true
+        }
+      ],
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-207",
+      "type": "riskFlag",
+      "label": "적격확인서 표준 패턴 확인 (항목1~5 없음, 항목6 네)",
+      "document": "ELIGIBILITY_CONFIRM",
+      "fields": ["item1None", "item2None", "item3None", "item4None", "item5None", "item6Yes"],
+      "fieldLabels": {
+        "item1None": "항목1 없음",
+        "item2None": "항목2 없음",
+        "item3None": "항목3 없음",
+        "item4None": "항목4 없음",
+        "item5None": "항목5 없음",
+        "item6Yes": "항목6 네"
+      },
+      "expectedBoolean": true,
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-208",
+      "type": "calcRule",
+      "calcType": "dateCompare",
+      "label": "교육일자 ≥ 근로시작일 (인턴 시작 이후 교육)",
+      "document": "EDUCATION_LEDGER",
+      "dateField": "educationDate",
+      "anchorDocument": "LABOR_CONTRACT",
+      "anchorField": "internStartDate",
+      "dateRelation": "onOrAfter",
+      "onFail": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-209",
+      "type": "crossCheck",
+      "label": "성명 일치 (신청서·근로계약서·교육대장, 초본 있으면 포함)",
+      "field": "name",
+      "documents": ["WORKER_APPLICATION", "LABOR_CONTRACT", "EDUCATION_LEDGER"],
+      "optionalDocuments": ["RESIDENT_ABSTRACT"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-210",
+      "type": "crossCheck",
+      "label": "근로계약서 기업 정보 = 선택 기업 일치 확인 (기업 선택 재확인)",
+      "field": "companyName",
+      "documents": ["LABOR_CONTRACT", "COMPANY_CONTEXT"],
+      "onMismatch": "NEEDS_REVIEW"
+    }
+  ]
+}

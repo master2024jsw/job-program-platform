@@ -18,6 +18,15 @@ export const DOCUMENT_TYPE_CODES = [
   'PAYSLIP',
   'EMPLOYMENT_CONTRACT',
   'ATTENDANCE_RECORD',
+  // 5단계: 근로자신청 서류유형 (R-201~210)
+  'WORKER_APPLICATION',
+  'RESIDENT_ABSTRACT',
+  'EMPLOYMENT_INSURANCE_HISTORY',
+  'ELIGIBILITY_CONFIRM',
+  'LABOR_CONTRACT',
+  'EDUCATION_LEDGER',
+  // 가상 컨텍스트: 서비스에서 검증엔진으로 기업 정보를 주입할 때 사용 (실제 파일이 아님)
+  'COMPANY_CONTEXT',
   'OTHER',
 ] as const;
 
@@ -35,6 +44,8 @@ export interface RequiredDocumentStage {
   label: string;
   target: RequiredDocumentStageTarget;
   documents: DocumentTypeCode[];
+  /** 선택서류: 없어도 MISSING이 아니나 있으면 관련 규칙 수행 */
+  optional?: DocumentTypeCode[];
 }
 
 /** 사업유형(typeCode)별 필수서류 정의. apps/server/resources/required-documents/*.json의 구조와 일치해야 한다. */

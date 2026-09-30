@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import { ContractType, Gender, WorkerStatus } from '@job-program/shared';
 import { buildExcelBuffer, readExcelRows, type ExcelColumn, type ImportSummary } from '../../common/excel.util';
 import { Worker } from './worker.entity';
 import { Company } from '../companies/company.entity';
+import { CompanyBusiness } from '../companies/company-business.entity';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
 
@@ -58,6 +59,28 @@ const EXCEL_COLUMNS: ExcelColumn[] = [
 
 const HEADER_TO_KEY = Object.fromEntries(EXCEL_COLUMNS.map((c) => [c.header, c.key]));
 
+/** '2026년 참여자관리' 시트 헤더와 반드시 일치해야 한다. */
+const LEDGER_COLUMNS: ExcelColumn[] = [
+  { header: '순번', key: 'seq', width: 6 },
+  { header: '기업명', key: 'companyName', width: 22 },
+  { header: '연락처', key: 'phone', width: 16 },
+  { header: '이메일', key: 'email', width: 24 },
+  { header: '참여유형', key: 'participationType', width: 12 },
+  { header: '성명', key: 'name', width: 12 },
+  { header: '주민번호', key: 'residentNumber', width: 18 },
+  { header: '인턴시작일', key: 'internStartDate', width: 14 },
+  { header: '인턴종료일', key: 'internEndDate', width: 14 },
+  { header: '퇴사일', key: 'resignDate', width: 14 },
+];
+
+/** 주민번호 표시용 마스킹: birthDate(YYYY-MM-DD) + gender → YYMMDD-G###### */
+function maskRrnForLedger(worker: Worker): string {
+  if (!worker.birthDate) return '';
+  const ymd = worker.birthDate.replace(/-/g, '').slice(2); // YYMMDD
+  const gDigit = worker.gender === Gender.MALE ? '1' : worker.gender === Gender.FEMALE ? '2' : '';
+  return `${ymd}-${gDigit}######`;
+}
+
 @Injectable()
 export class WorkersService {
   constructor(
@@ -65,6 +88,8 @@ export class WorkersService {
     private readonly workersRepository: Repository<Worker>,
     @InjectRepository(Company)
     private readonly companiesRepository: Repository<Company>,
+    @InjectRepository(CompanyBusiness)
+    private readonly companyBusinessRepository: Repository<CompanyBusiness>,
   ) {}
 
   create(dto: CreateWorkerDto): Promise<Worker> {
@@ -130,6 +155,45 @@ export class WorkersService {
       memo: w.memo ?? '',
     }));
     return buildExcelBuffer('근로자목록', EXCEL_COLUMNS, rows);
+  }
+
+  /**
+   * '2026년 참여자관리' 대장 형식으로 내보낸다.
+   * 이메일·참여유형은 Company/CompanyBusiness 조인값, 주민번호는 마스킹.
+   */
+  async exportLedger(businessId?: string): Promise<Buffer> {
+    const workers = await this.workersRepository.find({
+      where: businessId ? { businessId } : undefined,
+      relations: ['company'],
+      order: { createdAt: 'ASC' },
+    });
+
+    // CompanyBusiness 참여유형 일괄 조회
+    const cbMap = new Map<string, CompanyBusiness>();
+    if (businessId) {
+      const companyIds = [...new Set(workers.map((w) => w.companyId).filter((id): id is string => !!id))];
+      if (companyIds.length) {
+        const cbs = await this.companyBusinessRepository.find({
+          where: { companyId: In(companyIds), businessId },
+        });
+        for (const cb of cbs) cbMap.set(cb.companyId, cb);
+      }
+    }
+
+    const rows = workers.map((w, i) => ({
+      seq: i + 1,
+      companyName: w.company?.name ?? '',
+      phone: w.phone ?? '',
+      email: w.company?.email ?? '',
+      participationType: cbMap.get(w.companyId ?? '')?.participationType ?? '',
+      name: w.name,
+      residentNumber: maskRrnForLedger(w),
+      internStartDate: w.hireDate ?? '',
+      internEndDate: w.internEndDate ?? '',
+      resignDate: w.resignDate ?? '',
+    }));
+
+    return buildExcelBuffer('2026년 참여자관리', LEDGER_COLUMNS, rows);
   }
 
   async importFromExcel(buffer: Buffer, businessId?: string): Promise<ImportSummary> {

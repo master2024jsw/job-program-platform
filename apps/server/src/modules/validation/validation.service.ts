@@ -152,11 +152,13 @@ export class ValidationService {
     const typeDefs = this.requiredDocumentsService.getDocumentTypes();
     const labelOf = (code: string) => typeDefs.find((t) => t.code === code)?.label ?? code;
     if (!stage) return [];
+    const optionalSet = new Set(stage.optional ?? []);
     return stage.documents.map((code) => ({
       documentType: code,
       label: labelOf(code),
       present: presentTypes.has(code),
       analyzed: analyzedTypes.has(code),
+      optional: optionalSet.has(code),
     }));
   }
 

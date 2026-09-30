@@ -11,9 +11,18 @@
     },
     {
       "stage": "PARTICIPANT_ELIGIBILITY",
-      "label": "참여자 적격 확인",
+      "label": "참여자 적격 확인 (5단계)",
       "target": "WORKER",
-      "documents": ["PARTICIPANT_APPLICATION", "PRIVACY_CONSENT", "HEALTH_INSURANCE_HISTORY"]
+      "documents": [
+        "WORKER_APPLICATION",
+        "PRIVACY_CONSENT",
+        "RESIDENT_ABSTRACT",
+        "EMPLOYMENT_INSURANCE_HISTORY",
+        "ELIGIBILITY_CONFIRM",
+        "LABOR_CONTRACT",
+        "EDUCATION_LEDGER"
+      ],
+      "optional": ["RESIDENT_ABSTRACT", "EMPLOYMENT_INSURANCE_HISTORY"]
     },
     {
       "stage": "SUBSIDY_VERIFICATION",

@@ -13,6 +13,7 @@ const DEFAULT_MODEL = 'gemini-2.5-flash';
  * extractedData 키와 규칙 원장의 필드 참조를 일치시킨다.
  */
 const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
+  // 4단계 기업신청 서류
   COMPANY_APPLICATION:
     'businessRegistrationNumber, companyName, representativeName, phone(전화(팩스)에서 전화만), email, recruitJobTitle(모집직종명), recruitJobCode(모집직종 4자리 코드)',
   OPERATION_PLAN:
@@ -20,6 +21,21 @@ const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
   WORKPLACE_INSURANCE:
     'businessRegistrationNumber, nationalPension·healthInsurance·industrialAccident·employmentInsurance(각각 "가입"/"미가입")',
   BUSINESS_REGISTRATION: 'businessRegistrationNumber, companyName(상호), representativeName(대표자)',
+  // 5단계 근로자신청 서류
+  WORKER_APPLICATION:
+    'name(성명), residentNumber(주민등록번호 — "######-#######" 형식으로 추출, 뒤 7자리는 마스킹되어 있을 수 있음), phone(연락처), applicantSignature(신청인 서명 있음: true/false), counselorName(상담자 성명)',
+  PRIVACY_CONSENT:
+    'allConsentsChecked(모든 동의항목에 체크되어 있음: true/false), applicantSignature(신청인 서명 있음: true/false)',
+  RESIDENT_ABSTRACT:
+    'name(성명), residentNumber(주민등록번호 — "######-#######" 형식)',
+  EMPLOYMENT_INSURANCE_HISTORY:
+    'name(성명), birthDate(생년월일 YYYY-MM-DD), workplaces(사업장 목록 배열 — 각 항목: { companyName: 사업장명, startDate: 취득일 YYYY-MM-DD, lossDate: 상실일 YYYY-MM-DD or null(현재 재직 중) })',
+  ELIGIBILITY_CONFIRM:
+    'item1None(제외기준1 없음: true/false), item2None(제외기준2 없음: true/false), item3None(제외기준3 없음: true/false), item4None(제외기준4 없음: true/false), item5None(제외기준5 없음: true/false), item6Yes(참여가능조건6 네: true/false), applicantSignature(신청인 서명: true/false), companyStaffSignature(기업담당자 서명: true/false)',
+  LABOR_CONTRACT:
+    'companyName(사업체명), phone(전화), representativeName(대표자명), workerName(근로자명), internStartDate(인턴약정기간 시작일 YYYY-MM-DD), internEndDate(인턴약정기간 종료일 YYYY-MM-DD), hasInternKeyword(인턴/수습 또는 준하는 문구 있음: true/false), employerSignature(사업주 서명: true/false), workerSignature(근로자 서명: true/false)',
+  EDUCATION_LEDGER:
+    'participantName(참여자명), birthDate(생년월일 YYYY-MM-DD), educationName(교육명), educationOrg(교육기관), educationDate(교육일자 YYYY-MM-DD), participantSignature(참여자 서명 있음: true/false)',
 };
 
 const SCHEMA_HINT_ALL = [
