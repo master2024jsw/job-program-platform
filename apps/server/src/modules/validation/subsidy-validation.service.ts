@@ -143,7 +143,8 @@ export class SubsidyValidationService {
         workerByType[lcKey] = { ...workerByType[lcKey], name: workerByType[lcKey]!.workerName };
       }
 
-      // SUBSIDY_CALCULATION entries에서 해당 근로자 항목만 필터 주입
+      // SUBSIDY_CALCULATION entries에서 해당 근로자 항목만 필터 주입.
+      // R-302 crossCheck가 SUBSIDY_CALCULATION.name을 직접 참조하므로 최상위 name도 세팅.
       const calcKey = 'SUBSIDY_CALCULATION' as DocumentTypeCode;
       const calcData = workerByType[calcKey];
       if (calcData) {
@@ -151,7 +152,12 @@ export class SubsidyValidationService {
         const workerEntries = allEntries.filter(
           (e) => String(e.name ?? '').replace(/\s/g, '') === worker.name.replace(/\s/g, ''),
         );
-        workerByType[calcKey] = { ...calcData, entries: workerEntries.length ? workerEntries : allEntries };
+        const filtered = workerEntries.length ? workerEntries : allEntries;
+        workerByType[calcKey] = {
+          ...calcData,
+          entries: filtered,
+          name: (filtered[0] as Record<string, unknown> | undefined)?.name ?? worker.name,
+        };
       }
 
       // WORKER_CONTEXT 가상 서류 주입
