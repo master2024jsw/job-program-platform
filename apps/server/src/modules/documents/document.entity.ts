@@ -19,6 +19,9 @@ export class Document {
   @Column({ name: 'converted_file_path', type: 'varchar', nullable: true })
   convertedFilePath?: string | null;
 
+  @Column({ name: 'markdown_path', type: 'varchar', nullable: true })
+  markdownPath?: string | null;
+
   @Column({ name: 'mime_type' })
   mimeType!: string;
 

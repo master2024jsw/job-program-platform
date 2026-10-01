@@ -9,6 +9,8 @@ import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
 import { HwpToPdfConverter } from './converters/hwp-to-pdf.converter';
 import { ImageToPdfConverter } from './converters/image-to-pdf.converter';
+import { DocxToPdfConverter } from './converters/docx-to-pdf.converter';
+import { PdfToMarkdownConverter } from './converters/pdf-to-markdown.converter';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { RequiredDocumentsModule } from '../required-documents/required-documents.module';
 import { ValidationModule } from '../validation/validation.module';
@@ -21,7 +23,7 @@ import { ValidationModule } from '../validation/validation.module';
     ValidationModule,
   ],
   controllers: [DocumentsController],
-  providers: [DocumentsService, GeminiService, FileConversionService, HwpToPdfConverter, ImageToPdfConverter],
+  providers: [DocumentsService, GeminiService, FileConversionService, HwpToPdfConverter, ImageToPdfConverter, DocxToPdfConverter, PdfToMarkdownConverter],
   exports: [DocumentsService, FileConversionService],
 })
 export class DocumentsModule {}

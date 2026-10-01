@@ -80,9 +80,11 @@ export class GeminiService {
    * (한 파일에 여러 서류가 섞여 있어도 지정된 서류 항목·미비사항만 추출).
    * assignedType이 없으면(AI 자동분류) 코드 목록 중에서 종류를 판단하게 한다.
    */
-  private buildDefaultPrompt(assignedType?: DocumentTypeCode | null): string {
+  private buildDefaultPrompt(assignedType?: DocumentTypeCode | null, isText = false): string {
     const base = [
-      '첨부된 PDF 문서를 분석해서 정보를 JSON 객체로 추출해줘.',
+      isText
+        ? '위 텍스트 내용을 분석해서 정보를 JSON 객체로 추출해줘.'
+        : '첨부된 PDF 문서를 분석해서 정보를 JSON 객체로 추출해줘.',
       '값을 확인할 수 없는 항목은 넣지 말고, 반드시 JSON 객체 하나만 응답해(배열 금지).',
     ];
 
@@ -123,6 +125,45 @@ export class GeminiService {
       this.client = new GoogleGenAI({ apiKey });
     }
     return this.client;
+  }
+
+  /**
+   * Markdown 텍스트에서 문서 정보를 추출한다. PDF보다 토큰 절약.
+   * @param text PDF에서 추출된 Markdown 텍스트
+   */
+  async extractFromText(
+    text: string,
+    prompt?: string,
+    assignedType?: DocumentTypeCode | null,
+  ): Promise<Record<string, unknown>> {
+    const client = this.getClient();
+    const model = this.configService.get<string>('GEMINI_MODEL') ?? DEFAULT_MODEL;
+
+    const promptText = maskResidentNumbers(prompt?.trim() || this.buildDefaultPrompt(assignedType, true));
+
+    const response = await client.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: `다음은 문서에서 추출한 텍스트입니다:\n\n${text}\n\n---\n\n${promptText}` },
+          ],
+        },
+      ],
+      config: { responseMimeType: 'application/json' },
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      throw new BadRequestException('Gemini 응답에서 텍스트를 받지 못했습니다.');
+    }
+    try {
+      return JSON.parse(responseText) as Record<string, unknown>;
+    } catch {
+      this.logger.error(`Gemini 응답 JSON 파싱 실패: ${responseText}`);
+      throw new BadRequestException('Gemini 응답을 JSON으로 해석하지 못했습니다.');
+    }
   }
 
   /** @param assignedType 업로드 시 지정된 문서종류(있으면 그 서류로 스코프). */
