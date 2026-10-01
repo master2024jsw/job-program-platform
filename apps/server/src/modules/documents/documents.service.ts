@@ -229,10 +229,18 @@ export class DocumentsService {
     } else if (!this.fileConversionService.needsConversion(document.filePath)) {
       pdfPath = document.filePath;
     } else {
-      const convertedPath = await this.fileConversionService.convertToPdf(document.filePath);
+      const { pdfPath: convertedPath, markdownText } = await this.fileConversionService.convertToPdf(document.filePath);
       document.convertedFilePath = convertedPath;
       await this.documentsRepository.save(document);
       pdfPath = convertedPath;
+
+      // DOCX mammoth 폴백: Word 없이 추출한 텍스트를 MD로 직접 저장 (PDF→MD 추출 불필요)
+      if (markdownText && !document.markdownPath) {
+        const mdPath = `${convertedPath}.md`;
+        await fs.writeFile(mdPath, markdownText, 'utf-8');
+        document.markdownPath = mdPath;
+        await this.documentsRepository.save(document);
+      }
     }
 
     await this.ensureMarkdown(document, pdfPath);

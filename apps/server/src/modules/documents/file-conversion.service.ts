@@ -57,8 +57,11 @@ export class FileConversionService {
     return extracted;
   }
 
-  /** filePath를 PDF로 변환하고, 변환된 파일 경로를 반환한다. */
-  async convertToPdf(filePath: string): Promise<string> {
+  /**
+   * filePath를 PDF로 변환하고 결과를 반환한다.
+   * DOCX에서 Word COM 폴백(mammoth)이 사용된 경우 markdownText가 함께 반환된다.
+   */
+  async convertToPdf(filePath: string): Promise<{ pdfPath: string; markdownText?: string }> {
     const ext = path.extname(filePath).toLowerCase();
     const outputPath = `${filePath.slice(0, -ext.length)}.pdf`;
 
@@ -67,12 +70,13 @@ export class FileConversionService {
     } else if (IMAGE_EXTENSIONS.has(ext)) {
       await this.imageConverter.convert(filePath, outputPath);
     } else if (ext === '.docx') {
-      await this.docxConverter.convert(filePath, outputPath);
+      const result = await this.docxConverter.convert(filePath, outputPath);
+      return { pdfPath: outputPath, markdownText: result.markdownText };
     } else {
       throw new Error(`지원하지 않는 변환 형식입니다: ${ext}`);
     }
 
-    return outputPath;
+    return { pdfPath: outputPath };
   }
 
   /**
