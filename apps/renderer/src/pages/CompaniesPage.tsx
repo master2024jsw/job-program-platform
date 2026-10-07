@@ -5,6 +5,7 @@ import type { ImportSummary } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { ImportResultModal } from '../components/ImportResultModal';
+import { mailApi } from '../api/mail';
 
 const emptyForm: CompanyInput = {
   name: '',
@@ -58,6 +59,8 @@ export function CompaniesPage() {
   const [normalizeOpen, setNormalizeOpen] = useState(false);
   const [normalizeRows, setNormalizeRows] = useState<ContactNormalizePreviewRow[]>([]);
   const [normalizeLoading, setNormalizeLoading] = useState(false);
+
+  const [sendingMailId, setSendingMailId] = useState<string | null>(null);
 
   const load = async (kw?: string) => {
     setLoading(true);
@@ -142,6 +145,44 @@ export function CompaniesPage() {
       await load(keyword);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '삭제에 실패했습니다.');
+    }
+  };
+
+  const handleSendWorkerRequestMail = async (company: CompanyRow) => {
+    if (!currentBusinessId) return;
+    if (!company.email) {
+      window.alert('해당 기업에 등록된 이메일이 없습니다. 기업 정보에서 이메일을 먼저 입력해 주세요.');
+      return;
+    }
+    if (!window.confirm(`'${company.name}'(${company.email})에 근로자 신청서 제출 안내 메일을 발송하시겠습니까?`)) return;
+    setSendingMailId(company.id);
+    try {
+      await mailApi.send({
+        businessId: currentBusinessId,
+        companyId: company.id,
+        subject: '[일자리사업] 근로자 신청서 제출 요청',
+        body: `<p>안녕하세요, ${company.name} 담당자님.</p>
+<p>참여 기업으로 선정되신 것을 축하드립니다.</p>
+<p>아래 서류를 준비하여 이 메일에 회신해 주시기 바랍니다.</p>
+<ul>
+  <li>근로자 신청서 (기업신청서 포함)</li>
+  <li>사업자등록증명</li>
+  <li>4대보험 가입증명</li>
+  <li>사업운영계획서</li>
+</ul>
+<p>서류 제출 기한 및 문의 사항은 담당자에게 연락 주시기 바랍니다.</p>
+<p>감사합니다.</p>`,
+      });
+      await companiesApi.upsertBusiness(company.id, {
+        businessId: currentBusinessId,
+        documentGuideSent: true,
+      });
+      window.alert('메일이 발송되었습니다.');
+      await load(keyword);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '메일 발송에 실패했습니다.');
+    } finally {
+      setSendingMailId(null);
     }
   };
 
@@ -337,11 +378,12 @@ export function CompaniesPage() {
                       수정
                     </button>
                     <button
-                      className="btn btn-sm"
-                      title="준비 중인 기능입니다. TODO(다음지시서): 모집(3단계) 연동"
-                      disabled
+                      className="btn btn-sm btn-primary"
+                      disabled={sendingMailId === c.id || !c.email}
+                      title={!c.email ? '기업 이메일이 없습니다' : '근로자 신청서 제출 안내 메일 발송'}
+                      onClick={() => handleSendWorkerRequestMail(c)}
                     >
-                      모집으로 넘기기
+                      {sendingMailId === c.id ? '발송 중...' : c.companyBusiness?.documentGuideSent ? '신청서 재발송' : '근로자 신청서 발송'}
                     </button>
                     <button className="btn btn-sm btn-danger" onClick={() => handleDelete(c)}>
                       삭제
