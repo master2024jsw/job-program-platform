@@ -392,9 +392,52 @@ export class DocumentsService {
         this.logger.log(`근로자 자동 등록: ${worker!.name} (id=${worker!.id}, companyId=${document.companyId})`);
       }
 
-      // 문서에 근로자 연결
+      // WORKER_APPLICATION 문서에 근로자 연결
       document.workerId = worker!.id;
       await this.documentsRepository.save(document);
+
+      // 같은 메일(imapMessageId)에서 함께 온 근로자 서류에도 workerId를 backfill한다.
+      // (신청서 외 나머지 서류들은 analyzeWorkerIfNew가 실행되지 않아 workerId가 null로 남음)
+      if (document.imapMessageId) {
+        const siblings = await this.documentsRepository.find({
+          where: {
+            imapMessageId: document.imapMessageId,
+            workerId: IsNull(),
+          },
+        });
+        const workerDocTypes = new Set<string>(DocumentsService.WORKER_DOC_TYPES);
+        const toUpdate = siblings.filter((s) => s.documentType && workerDocTypes.has(s.documentType));
+        if (toUpdate.length > 0) {
+          await this.documentsRepository.update(
+            toUpdate.map((s) => s.id),
+            { workerId: worker!.id },
+          );
+          this.logger.log(`근로자 서류 backfill: workerId=${worker!.id}, ${toUpdate.length}건`);
+        }
+
+        // 다수결 교차검증: 형제 서류들의 이름 필드를 모아 가장 많이 나오는 이름으로 보정
+        // (신청서 OCR 오류를 다른 서류들이 교정)
+        const nameTally = new Map<string, number>();
+        const allDocs = [document, ...toUpdate];
+        for (const doc of allDocs) {
+          const d = doc.extractedData as Record<string, unknown> | null;
+          if (!d) continue;
+          // 서류 유형마다 이름 필드명이 다름
+          const candidate = (d.name ?? d.workerName ?? d.participantName);
+          if (typeof candidate === 'string' && candidate.trim()) {
+            const n = candidate.trim();
+            nameTally.set(n, (nameTally.get(n) ?? 0) + 1);
+          }
+        }
+        if (nameTally.size > 1) {
+          const majorityName = [...nameTally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+          if (majorityName !== worker!.name) {
+            await this.workersRepository.update(worker!.id, { name: majorityName });
+            this.logger.warn(`근로자 이름 다수결 보정: "${worker!.name}" → "${majorityName}" (투표: ${JSON.stringify(Object.fromEntries(nameTally))})`);
+            worker!.name = majorityName;
+          }
+        }
+      }
     } catch (error) {
       this.logger.error(`근로자 자동 등록 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
     }
