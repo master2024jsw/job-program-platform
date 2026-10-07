@@ -3,10 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CompanyStatus, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, type DocumentTypeCode } from '@job-program/shared';
+import { CompanyStatus, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
 import { maskDeep } from '../../common/masking.util';
 import { ValidationService } from '../validation/validation.service';
+import { WorkerValidationService } from '../validation/worker-validation.service';
 import { Document } from './document.entity';
 import { Company } from '../companies/company.entity';
 import { CompanyBusiness } from '../companies/company-business.entity';
@@ -60,6 +61,7 @@ export class DocumentsService {
     private readonly geminiService: GeminiService,
     private readonly fileConversionService: FileConversionService,
     private readonly validationService: ValidationService,
+    private readonly workerValidationService: WorkerValidationService,
     private readonly fileRouterService: FileRouterService,
   ) {}
 
@@ -69,6 +71,17 @@ export class DocumentsService {
     'OPERATION_PLAN',
     'WORKPLACE_INSURANCE',
     'BUSINESS_REGISTRATION',
+  ];
+
+  /** 근로자 적격(5단계) 검증 대상 서류유형 — 분석 완료 시 근로자 검증을 자동 실행한다. */
+  private static readonly WORKER_DOC_TYPES: DocumentTypeCode[] = [
+    'WORKER_APPLICATION',
+    'PRIVACY_CONSENT',
+    'RESIDENT_ABSTRACT',
+    'EMPLOYMENT_INSURANCE_HISTORY',
+    'ELIGIBILITY_CONFIRM',
+    'LABOR_CONTRACT',
+    'EDUCATION_LEDGER',
   ];
 
   async create(file: Express.Multer.File, dto: CreateDocumentDto): Promise<Document> {
@@ -156,6 +169,8 @@ export class DocumentsService {
     let saved = await this.documentsRepository.save(document);
     await this.autoRegisterCompanyIfNew(saved);
     await this.runCompanyValidationIfApplicable(saved);
+    await this.autoRegisterWorkerIfNew(saved);
+    await this.runWorkerValidationIfApplicable(saved);
 
     if (saved.status === DocumentAnalysisStatus.ANALYZED) {
       try {
@@ -321,6 +336,84 @@ export class DocumentsService {
       // 검증 실패는 로그만 남기고 문서 분석 결과는 유지한다.
       // eslint-disable-next-line no-console
       console.error(`기업 신청 검증 실패(companyId=${document.companyId}): ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  /**
+   * WORKER_APPLICATION 분석 완료 후 근로자가 DB에 없으면 추출값으로 자동 등록한다.
+   * companyId 컨텍스트(IMAP 발신자 매칭 또는 담당자 지정)가 반드시 있어야 한다.
+   * 기업명 문자열 매칭 금지 — companyId가 없으면 등록하지 않는다.
+   */
+  private async autoRegisterWorkerIfNew(document: Document): Promise<void> {
+    if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
+    if (document.documentType !== 'WORKER_APPLICATION') return;
+    if (document.workerId) return; // 이미 근로자 연결됨
+    if (!document.companyId) return; // companyId 컨텍스트 없으면 등록 불가
+
+    const data = document.extractedData as Record<string, unknown> | null;
+    if (!data) return;
+
+    const rawName = data.name;
+    if (typeof rawName !== 'string' || !rawName.trim()) return;
+
+    const name = rawName.trim();
+
+    try {
+      // 주민번호 앞 6자리 → 생년월일 파생
+      const rawRrn = typeof data.residentNumber === 'string' ? data.residentNumber.replace(/\D/g, '') : '';
+      let birthDate: string | undefined;
+      let gender: string | undefined;
+      if (rawRrn.length >= 7) {
+        const yy = rawRrn.slice(0, 2);
+        const mm = rawRrn.slice(2, 4);
+        const dd = rawRrn.slice(4, 6);
+        const gd = rawRrn[6];
+        const century = ['1', '2'].includes(gd) ? '19' : ['3', '4'].includes(gd) ? '20' : null;
+        birthDate = century ? `${century}${yy}-${mm}-${dd}` : undefined;
+        gender = ['1', '3'].includes(gd) ? 'MALE' : ['2', '4'].includes(gd) ? 'FEMALE' : undefined;
+      }
+
+      // 같은 기업·사업 내 동명이인 방지: 이름+생년월일 조합으로 기존 근로자 검색
+      let worker = birthDate
+        ? await this.workersRepository.findOne({ where: { companyId: document.companyId, name, birthDate } })
+        : await this.workersRepository.findOne({ where: { companyId: document.companyId, name } });
+
+      if (!worker) {
+        const newWorker = new Worker();
+        newWorker.name = name;
+        newWorker.birthDate = birthDate ?? '1900-01-01';
+        if (gender) newWorker.gender = gender as Worker['gender'];
+        if (typeof data.phone === 'string') newWorker.phone = data.phone;
+        newWorker.companyId = document.companyId;
+        newWorker.businessId = document.businessId;
+        newWorker.status = WorkerStatus.ACTIVE;
+        worker = await this.workersRepository.save(newWorker);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        this.logger.log(`근로자 자동 등록: ${worker!.name} (id=${worker!.id}, companyId=${document.companyId})`);
+      }
+
+      // 문서에 근로자 연결
+      document.workerId = worker!.id;
+      await this.documentsRepository.save(document);
+    } catch (error) {
+      this.logger.error(`근로자 자동 등록 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  /**
+   * 분석 완료된 문서가 근로자 적격 서류이고 근로자·기업·사업에 연결돼 있으면 근로자 검증을 자동 실행한다.
+   */
+  private async runWorkerValidationIfApplicable(document: Document): Promise<void> {
+    if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
+    if (!document.businessId || !document.companyId || !document.workerId) return;
+    if (!document.documentType || !DocumentsService.WORKER_DOC_TYPES.includes(document.documentType as DocumentTypeCode)) {
+      return;
+    }
+    try {
+      await this.workerValidationService.validateWorker(document.businessId, document.companyId, document.workerId, true);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`근로자 신청 검증 실패(workerId=${document.workerId}): ${error instanceof Error ? error.message : error}`);
     }
   }
 

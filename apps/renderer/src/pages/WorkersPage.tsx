@@ -6,6 +6,7 @@ import type { ImportSummary } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { ImportResultModal } from '../components/ImportResultModal';
+import { WorkerValidationPanel } from '../components/WorkerValidationPanel';
 
 const emptyForm: WorkerInput = {
   name: '',
@@ -59,6 +60,8 @@ export function WorkersPage() {
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [validationTarget, setValidationTarget] = useState<Worker | null>(null);
 
   const companyMap = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
 
@@ -281,6 +284,14 @@ export function WorkersPage() {
                     <button className="btn btn-sm" onClick={() => openEdit(w)}>
                       수정
                     </button>
+                    <button
+                      className="btn btn-sm btn-primary"
+                      disabled={!w.companyId}
+                      title={!w.companyId ? '소속 기업이 없습니다' : '근로자 신청 적격 검증'}
+                      onClick={() => setValidationTarget(w)}
+                    >
+                      신청 검증
+                    </button>
                     <button className="btn btn-sm btn-danger" onClick={() => handleDelete(w)}>
                       삭제
                     </button>
@@ -454,6 +465,19 @@ export function WorkersPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {validationTarget && currentBusinessId && validationTarget.companyId && (
+        <Modal
+          title={`근로자 신청 검증 — ${validationTarget.name}`}
+          onClose={() => setValidationTarget(null)}
+        >
+          <WorkerValidationPanel
+            businessId={currentBusinessId}
+            companyId={validationTarget.companyId}
+            workerId={validationTarget.id}
+          />
         </Modal>
       )}
     </div>
