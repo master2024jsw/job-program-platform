@@ -205,11 +205,11 @@ export function DocumentsPage() {
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (documents.length === 0) return;
-    if (!window.confirm(`현재 목록의 문서 ${documents.length}건을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`선택한 문서 ${selectedIds.size}건을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
     const errors: string[] = [];
-    for (const doc of documents) {
+    for (const doc of documents.filter((d) => selectedIds.has(d.id))) {
       try {
         await documentsApi.remove(doc.id);
       } catch {
@@ -366,10 +366,10 @@ export function DocumentsPage() {
               </button>
               <button
                 className="btn btn-danger"
-                onClick={handleDeleteAll}
-                disabled={documents.length === 0}
+                onClick={handleDeleteSelected}
+                disabled={selectedIds.size === 0}
               >
-                전체 삭제
+                선택 삭제 ({selectedIds.size})
               </button>
               <button className="btn" onClick={() => documentsApi.exportReport()}>
                 AI 검토 보고서 다운로드
