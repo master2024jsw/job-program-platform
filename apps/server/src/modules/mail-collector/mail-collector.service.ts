@@ -12,7 +12,7 @@ import { CompanyBusiness } from '../companies/company-business.entity';
 import { Worker } from '../workers/worker.entity';
 import { DocumentsService } from '../documents/documents.service';
 
-const uploadDir = path.join(process.cwd(), 'data', 'uploads');
+const inboxDir = path.join(process.cwd(), 'data', '_inbox');
 
 export interface CollectSummary {
   messagesProcessed: number;
@@ -35,7 +35,7 @@ export class MailCollectorService {
     private readonly workersRepository: Repository<Worker>,
   ) {}
 
-  async collect(): Promise<CollectSummary> {
+  async collect(filter?: { since?: Date; before?: Date }): Promise<CollectSummary> {
     const host = this.configService.get<string>('IMAP_HOST');
     const port = Number(this.configService.get<string>('IMAP_PORT') ?? 993);
     const secure = this.configService.get<string>('IMAP_SECURE') !== 'false';
@@ -54,14 +54,17 @@ export class MailCollectorService {
     try {
       const lock = await client.getMailboxLock(mailbox);
       try {
-        const uids = await client.search({ seen: false }, { uid: true });
+        const uids = await client.search(
+          { ...(filter?.since && { since: filter.since }), ...(filter?.before && { before: filter.before }) },
+          { uid: true },
+        );
         if (!uids || uids.length === 0) {
           return summary;
         }
 
         for (const uid of uids) {
           try {
-            await this.processMessage(client, uid, summary);
+            await this.processMessage(client, uid, summary, filter);
             summary.messagesProcessed++;
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -79,33 +82,66 @@ export class MailCollectorService {
     return summary;
   }
 
-  private async processMessage(client: ImapFlow, uid: number, summary: CollectSummary): Promise<void> {
+  private async processMessage(
+    client: ImapFlow,
+    uid: number,
+    summary: CollectSummary,
+    filter?: { since?: Date; before?: Date },
+  ): Promise<void> {
     const { content } = await client.download(uid, undefined, { uid: true });
     const parsed = await simpleParser(content);
 
+    // IMAP 서버가 SINCE/BEFORE 날짜 검색을 정확히 구현하지 않는 경우를 대비한 클라이언트 측 필터
+    if (parsed.date) {
+      const msgDate = new Date(parsed.date);
+      msgDate.setHours(0, 0, 0, 0);
+      if (filter?.since) {
+        const since = new Date(filter.since);
+        since.setHours(0, 0, 0, 0);
+        if (msgDate < since) return;
+      }
+      if (filter?.before) {
+        const before = new Date(filter.before);
+        before.setHours(0, 0, 0, 0);
+        if (msgDate >= before) return;
+      }
+    }
+
     const senderEmail = parsed.from?.value?.[0]?.address ?? '';
+    const imapMessageId = parsed.messageId ?? null;
     const { companyId, workerId } = await this.resolveSender(senderEmail);
     const businessId = await this.resolveBusinessId(companyId, workerId);
 
-    await fs.mkdir(uploadDir, { recursive: true });
+    await fs.mkdir(inboxDir, { recursive: true });
 
     for (const attachment of parsed.attachments) {
       if (!attachment.filename) continue;
 
-      const savedName = `${randomUUID()}${path.extname(attachment.filename)}`;
-      const savedPath = path.join(uploadDir, savedName);
+      const now = new Date();
+      const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+      const hash = randomUUID().replace(/-/g, '').slice(0, 4);
+      const savedName = `${ts}_${hash}${path.extname(attachment.filename)}`;
+      const savedPath = path.join(inboxDir, savedName);
       await fs.writeFile(savedPath, attachment.content);
 
-      await this.documentsService.createFromCollectedFile({
+      const doc = await this.documentsService.createFromCollectedFile({
         fileName: attachment.filename,
         filePath: savedPath,
         mimeType: attachment.contentType,
         fileSize: attachment.size,
         senderEmail,
+        imapMessageId,
         businessId,
         companyId,
         workerId,
       });
+
+      // 이미 수집된 첨부파일이면 건너뜀
+      if (!doc) {
+        await fs.rm(savedPath, { force: true });
+        continue;
+      }
+
       summary.attachmentsSaved++;
     }
 

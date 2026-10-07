@@ -1,20 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, type DocumentTypeCode } from '@job-program/shared';
+import { CompanyStatus, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, type DocumentTypeCode } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
 import { maskDeep } from '../../common/masking.util';
 import { ValidationService } from '../validation/validation.service';
 import { Document } from './document.entity';
 import { Company } from '../companies/company.entity';
+import { CompanyBusiness } from '../companies/company-business.entity';
+import { Business } from '../businesses/business.entity';
 import { Worker } from '../workers/worker.entity';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { AnalyzeDocumentDto } from './dto/analyze-document.dto';
 import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
+import { FileRouterService } from './file-router.service';
 
 const STATUS_LABEL: Record<DocumentAnalysisStatus, string> = {
   [DocumentAnalysisStatus.PENDING]: '대기',
@@ -41,16 +44,23 @@ const REPORT_COLUMNS: ExcelColumn[] = [
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     @InjectRepository(Document)
     private readonly documentsRepository: Repository<Document>,
     @InjectRepository(Company)
     private readonly companiesRepository: Repository<Company>,
+    @InjectRepository(CompanyBusiness)
+    private readonly companyBusinessRepository: Repository<CompanyBusiness>,
+    @InjectRepository(Business)
+    private readonly businessesRepository: Repository<Business>,
     @InjectRepository(Worker)
     private readonly workersRepository: Repository<Worker>,
     private readonly geminiService: GeminiService,
     private readonly fileConversionService: FileConversionService,
     private readonly validationService: ValidationService,
+    private readonly fileRouterService: FileRouterService,
   ) {}
 
   /** 기업 적격(4단계) 검증 대상 서류유형 — 분석 완료 시 기업 신청 건 검증을 자동 실행한다. */
@@ -118,10 +128,10 @@ export class DocumentsService {
     try {
       const pdfPath = await this.ensurePdf(document);
 
-      // Markdown이 있으면 텍스트 경로(토큰 절약), 없으면 PDF 바이너리 경로
+      // 마크다운이 있고 내용이 충분하면(100자↑) 텍스트로 전송, 스캔 PDF 등 텍스트가 빈약하면 PDF 바이너리 직접 전송
       let rawExtracted: Record<string, unknown>;
-      if (document.markdownPath) {
-        const mdText = await fs.readFile(document.markdownPath, 'utf-8');
+      const mdText = document.markdownPath ? await fs.readFile(document.markdownPath, 'utf-8') : '';
+      if (mdText.replace(/\s/g, '').length >= 100) {
         rawExtracted = await this.geminiService.extractFromText(mdText, dto.prompt, document.documentType as DocumentTypeCode | null);
       } else {
         rawExtracted = await this.geminiService.extractFromPdf(pdfPath, dto.prompt, document.documentType as DocumentTypeCode | null);
@@ -143,8 +153,20 @@ export class DocumentsService {
       document.errorMessage = error instanceof Error ? error.message : String(error);
     }
 
-    const saved = await this.documentsRepository.save(document);
+    let saved = await this.documentsRepository.save(document);
+    await this.autoRegisterCompanyIfNew(saved);
     await this.runCompanyValidationIfApplicable(saved);
+
+    if (saved.status === DocumentAnalysisStatus.ANALYZED) {
+      try {
+        saved = await this.fileRouterService.relocate(saved);
+      } catch (routeErr) {
+        // 파일 이동 실패는 분석 결과를 깨뜨리지 않는다 — 파일은 _inbox에 남음
+        // eslint-disable-next-line no-console
+        console.warn(`파일 이동 실패(id=${saved.id}): ${routeErr instanceof Error ? routeErr.message : routeErr}`);
+      }
+    }
+
     return saved;
   }
 
@@ -179,11 +201,27 @@ export class DocumentsService {
           companyId: document.companyId,
           workerId: document.workerId,
         });
+        if (!child) continue;
         childIds.push(child.id);
         try {
           await this.analyze(child.id, dto);
         } catch {
           // 개별 파일 분석 실패는 다른 파일 처리를 막지 않는다
+        }
+      }
+
+      // 형제 파일 중 기업신청서 분석으로 companyId가 확정되면 나머지 형제에도 전파
+      if (childIds.length > 1) {
+        const childDocs = await Promise.all(childIds.map((id) => this.documentsRepository.findOne({ where: { id } })));
+        const anchor = childDocs.find((d) => d?.companyId);
+        if (anchor?.companyId) {
+          for (const sibling of childDocs) {
+            if (sibling && !sibling.companyId) {
+              sibling.companyId = anchor.companyId;
+              sibling.businessId = sibling.businessId ?? anchor.businessId;
+              await this.documentsRepository.save(sibling);
+            }
+          }
         }
       }
 
@@ -196,6 +234,75 @@ export class DocumentsService {
     }
 
     return this.documentsRepository.save(document);
+  }
+
+  /**
+   * COMPANY_APPLICATION 분석 완료 후 기업이 DB에 없으면 추출값으로 자동 등록한다.
+   * 기관에 사업이 정확히 1개면 CompanyBusiness도 함께 생성한다.
+   * 실패해도 분석 결과를 깨뜨리지 않는다.
+   */
+  private async autoRegisterCompanyIfNew(document: Document): Promise<void> {
+    if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
+    if (document.documentType !== 'COMPANY_APPLICATION') return;
+    if (document.companyId) return; // 이미 기업 연결됨
+
+    const data = document.extractedData as Record<string, unknown> | null;
+    if (!data) return;
+
+    const rawBrn = data.businessRegistrationNumber;
+    const rawName = data.companyName;
+    if (typeof rawName !== 'string' || !rawName.trim()) return;
+
+    const brn = typeof rawBrn === 'string' ? rawBrn.trim() : null;
+    const name = rawName.trim();
+
+    try {
+      // 사업자번호로 기존 기업 찾기, 없으면 기업명으로 재시도
+      let company = brn
+        ? await this.companiesRepository.findOne({ where: { businessRegistrationNumber: brn } })
+        : null;
+      if (!company && !brn) {
+        company = await this.companiesRepository.findOne({ where: { name } });
+      }
+
+      if (!company) {
+        company = await this.companiesRepository.save(
+          this.companiesRepository.create({
+            name,
+            businessRegistrationNumber: brn ?? undefined,
+            representativeName: typeof data.representativeName === 'string' ? data.representativeName : undefined,
+            phone: typeof data.phone === 'string' ? data.phone : undefined,
+            email: typeof data.email === 'string' ? data.email : undefined,
+            status: CompanyStatus.ACTIVE,
+            source: 'api',
+          }),
+        );
+        this.logger.log(`기업 자동 등록: ${company.name} (id=${company.id})`);
+      }
+
+      // 기관에 사업이 1개뿐이면 CompanyBusiness 자동 생성
+      const businesses = await this.businessesRepository.find();
+      if (businesses.length === 1) {
+        const businessId = businesses[0].id;
+        const existing = await this.companyBusinessRepository.findOne({
+          where: { companyId: company.id, businessId },
+        });
+        if (!existing) {
+          await this.companyBusinessRepository.save(
+            this.companyBusinessRepository.create({ companyId: company.id, businessId }),
+          );
+        }
+      }
+
+      // 문서에 기업 연결
+      document.companyId = company.id;
+      if (!document.businessId && businesses.length === 1) {
+        document.businessId = businesses[0].id;
+      }
+      await this.documentsRepository.save(document);
+    } catch (error) {
+      this.logger.error(`기업 자동 등록 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   /**
@@ -267,10 +374,19 @@ export class DocumentsService {
     mimeType: string;
     fileSize: number;
     senderEmail: string;
+    imapMessageId?: string | null;
     businessId?: string | null;
     companyId?: string | null;
     workerId?: string | null;
-  }): Promise<Document> {
+  }): Promise<Document | null> {
+    // 같은 메일(Message-ID + 파일명)이 이미 수집된 경우 건너뜀
+    if (params.imapMessageId) {
+      const existing = await this.documentsRepository.findOne({
+        where: { imapMessageId: params.imapMessageId, fileName: params.fileName },
+      });
+      if (existing) return null;
+    }
+
     const document = this.documentsRepository.create({
       businessId: params.businessId,
       fileName: params.fileName,
@@ -278,6 +394,7 @@ export class DocumentsService {
       mimeType: params.mimeType,
       fileSize: params.fileSize,
       senderEmail: params.senderEmail,
+      imapMessageId: params.imapMessageId,
       companyId: params.companyId,
       workerId: params.workerId,
       source: 'IMAP',
@@ -294,12 +411,14 @@ export class DocumentsService {
 
   async remove(id: string): Promise<void> {
     const document = await this.findOne(id);
-    await fs.rm(document.filePath, { force: true });
-    if (document.convertedFilePath) {
-      await fs.rm(document.convertedFilePath, { force: true });
-    }
-    if (document.markdownPath) {
-      await fs.rm(document.markdownPath, { force: true });
+    // 파일 삭제 실패가 DB 레코드 삭제를 막지 않도록 각각 방어적으로 처리
+    const filesToDelete = [document.filePath, document.convertedFilePath, document.markdownPath].filter(Boolean) as string[];
+    for (const filePath of filesToDelete) {
+      try {
+        await fs.rm(filePath, { force: true });
+      } catch (err) {
+        this.logger.warn(`파일 삭제 실패(path=${filePath}): ${err instanceof Error ? err.message : err}`);
+      }
     }
     await this.documentsRepository.remove(document);
   }

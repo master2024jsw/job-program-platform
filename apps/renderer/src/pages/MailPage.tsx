@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MailLogStatus, type Company, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
-import { mailApi, mailTemplatesApi, type MailTemplateInput } from '../api/mail';
+import { mailApi, mailTemplatesApi, type CollectSummary, type MailTemplateInput } from '../api/mail';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 
-type SubTab = 'send' | 'templates' | 'logs';
+type SubTab = 'collect' | 'send' | 'templates' | 'logs';
 
 function extractVariables(text: string): string[] {
   const matches = text.matchAll(/\{\{\s*(\w+)\s*\}\}/g);
@@ -17,7 +17,7 @@ const emptyTemplateForm: MailTemplateInput = { name: '', subject: '', body: '' }
 
 export function MailPage() {
   const { currentBusinessId } = useAuth();
-  const [subTab, setSubTab] = useState<SubTab>('send');
+  const [subTab, setSubTab] = useState<SubTab>('collect');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [templates, setTemplates] = useState<MailTemplate[]>([]);
@@ -42,6 +42,9 @@ export function MailPage() {
   return (
     <div className="page">
       <div className="sub-tab-nav">
+        <button className={`btn btn-sm ${subTab === 'collect' ? 'btn-primary' : ''}`} onClick={() => setSubTab('collect')}>
+          메일 수집
+        </button>
         <button className={`btn btn-sm ${subTab === 'send' ? 'btn-primary' : ''}`} onClick={() => setSubTab('send')}>
           메일 발송
         </button>
@@ -56,11 +59,107 @@ export function MailPage() {
         </button>
       </div>
 
+      {subTab === 'collect' && <CollectPanel />}
       {subTab === 'send' && (
         <SendMailPanel companies={companies} workers={workers} templates={templates} businessId={currentBusinessId} />
       )}
       {subTab === 'templates' && <TemplatesPanel templates={templates} onChange={setTemplates} />}
       {subTab === 'logs' && <LogsPanel logs={logs} onRefresh={refreshLogs} />}
+    </div>
+  );
+}
+
+function CollectPanel() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [since, setSince] = useState(today);
+  const [before, setBefore] = useState('');
+  const [collecting, setCollecting] = useState(false);
+  const [result, setResult] = useState<CollectSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCollect = async () => {
+    setCollecting(true);
+    setResult(null);
+    setError(null);
+    try {
+      const summary = await mailApi.collect({
+        since: since || undefined,
+        before: before || undefined,
+      });
+      setResult(summary);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '메일 수집에 실패했습니다.');
+    } finally {
+      setCollecting(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ padding: '1.25rem', maxWidth: 560 }}>
+      <p className="hint-text" style={{ marginBottom: '1rem' }}>
+        받은편지함의 안 읽은 메일에서 첨부파일을 수집합니다.
+        참여기업신청서가 첨부된 경우 AI가 기업 정보를 분석하여 자동으로 등록합니다.
+      </p>
+
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', alignItems: 'flex-end' }}>
+        <div className="field">
+          <label>수집 시작일</label>
+          <input
+            type="date"
+            className="text-input"
+            value={since}
+            onChange={(e) => setSince(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>수집 종료일 <span className="hint-text">(선택)</span></label>
+          <input
+            type="date"
+            className="text-input"
+            value={before}
+            min={since || undefined}
+            onChange={(e) => setBefore(e.target.value)}
+          />
+        </div>
+        <button className="btn btn-primary" onClick={handleCollect} disabled={collecting} style={{ marginBottom: '0' }}>
+          {collecting ? '수집 중...' : '메일 수집 실행'}
+        </button>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
+      {result && (
+        <div>
+          <table className="data-table">
+            <tbody>
+              <tr>
+                <td>처리된 메일</td>
+                <td><strong>{result.messagesProcessed}건</strong></td>
+              </tr>
+              <tr>
+                <td>저장된 첨부파일</td>
+                <td><strong>{result.attachmentsSaved}건</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          {result.errors.length > 0 && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <p className="hint-text">처리 중 오류:</p>
+              {result.errors.map((e, i) => (
+                <p key={i} className="error-text">{e}</p>
+              ))}
+            </div>
+          )}
+          {result.messagesProcessed === 0 && (
+            <p className="hint-text" style={{ marginTop: '0.75rem' }}>수집할 새 메일이 없습니다.</p>
+          )}
+          {result.attachmentsSaved > 0 && (
+            <p className="hint-text" style={{ marginTop: '0.75rem', color: 'var(--color-success)' }}>
+              문서함에서 수집된 파일과 AI 분석 결과를 확인하세요.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -28,13 +28,16 @@ export class FileConversionService {
 
   /**
    * ZIP 파일에서 내부 파일을 extractDir에 추출하고 경로 목록을 반환한다.
-   * 숨김 파일(. 또는 __로 시작)과 디렉터리는 건너뛴다.
+   * 숨김 파일(. 또는 __로 시작)과 디렉터리는 건너뜀.
+   * ZIP 내부 파일명이 CP949(EUC-KR)로 인코딩된 경우 iconv-lite로 복원한다.
    */
   extractZip(zipPath: string, extractDir: string): string[] {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const AdmZip = require('adm-zip') as new (p: string) => {
-      getEntries(): Array<{ entryName: string; isDirectory: boolean; getData(): Buffer }>;
+      getEntries(): Array<{ entryName: string; isDirectory: boolean; getData(): Buffer; rawEntryName?: Buffer }>;
     };
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const iconv = require('iconv-lite') as { decode: (buf: Buffer, enc: string) => string };
 
     if (!fs.existsSync(extractDir)) {
       fs.mkdirSync(extractDir, { recursive: true });
@@ -46,7 +49,17 @@ export class FileConversionService {
 
     for (const entry of entries) {
       if (entry.isDirectory) continue;
-      const basename = path.basename(entry.entryName);
+
+      let basename: string;
+      const rawName = entry.rawEntryName;
+      if (rawName && Buffer.isBuffer(rawName)) {
+        // UTF-8 디코딩 시 U+FFFD(대체문자)가 나오면 → CP949 원본
+        const asUtf8 = rawName.toString('utf8');
+        basename = path.basename(asUtf8.includes('�') ? iconv.decode(rawName, 'cp949') : asUtf8);
+      } else {
+        basename = path.basename(entry.entryName);
+      }
+
       if (!basename || basename.startsWith('.') || basename.startsWith('__')) continue;
 
       const outputPath = path.join(extractDir, basename);

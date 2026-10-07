@@ -21,7 +21,14 @@ export const mailTemplatesApi = {
   remove: (id: string) => api.delete<null>(`/mail-templates/${id}`),
 };
 
+export interface CollectSummary {
+  messagesProcessed: number;
+  attachmentsSaved: number;
+  errors: string[];
+}
+
 export const mailApi = {
   send: (dto: SendMailInput) => api.post<MailLog[]>('/mail/send', dto),
   logs: (businessId?: string) => api.get<MailLog[]>(`/mail/logs${businessId ? `?businessId=${businessId}` : ''}`),
+  collect: (filter?: { since?: string; before?: string }) => api.post<CollectSummary>('/mail-collector/collect', filter ?? {}),
 };

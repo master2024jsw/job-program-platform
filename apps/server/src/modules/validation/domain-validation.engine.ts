@@ -443,6 +443,7 @@ export class DomainValidationEngine {
     const internMax = rule.internMaxAmount ?? 400000;
     const hireMax = rule.hireMaxAmount ?? 500000;
     const mismatches: unknown[] = [];
+    const unknownTypes: string[] = [];
     let totalCalc = 0;
     for (const e of entries) {
       const entry = e as Record<string, unknown>;
@@ -450,12 +451,25 @@ export class DomainValidationEngine {
       const declared = Number(entry[rule.amountField ?? 'subsidyAmount'] ?? 0);
       const typeStr = String(entry[rule.typeField ?? 'subsidyType'] ?? '').toLowerCase();
       const isHire = typeStr.includes('채용') || typeStr === 'hire';
+      const isIntern = typeStr.includes('인턴') || typeStr === 'intern';
+      if (!isHire && !isIntern) {
+        unknownTypes.push(typeStr || '(비어 있음)');
+        continue;
+      }
       const maxAmt = isHire ? hireMax : internMax;
       const calculated = Math.min(Math.round(salary * 0.5), maxAmt);
       totalCalc += calculated;
       if (Math.abs(declared - calculated) > (rule.toleranceAmount ?? 0)) {
         mismatches.push({ round: entry.round, periodLabel: entry.periodLabel, salary, declared, calculated, subsidyType: typeStr });
       }
+    }
+    if (unknownTypes.length > 0) {
+      return {
+        ruleId: rule.id, type: rule.type, label: rule.label,
+        verdict: rule.onFail ?? 'NEEDS_REVIEW',
+        message: `산정 규칙이 정의되지 않은 지원금 유형입니다: ${[...new Set(unknownTypes)].join(', ')}`,
+        evidence: { unknownTypes, total: entries.length },
+      };
     }
     return {
       ruleId: rule.id, type: rule.type, label: rule.label,

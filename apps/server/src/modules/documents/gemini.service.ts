@@ -40,7 +40,7 @@ const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
   SUBSIDY_APPLICATION:
     'businessRegistrationNumber(사업자등록번호), companyName(사업체명), representativeName(대표자명), bankName(은행명), bankAccount(계좌번호), accountHolder(예금주), applicantCount(신청인원 숫자), totalAmount(총 신청금액 숫자), applicantSignature(대표자 서명 있음: true/false)',
   SUBSIDY_CALCULATION:
-    'entries(인원별 산출내역 배열 — 각 항목: { name: 성명, round: 회차 숫자, periodLabel: 급여월 "YYYY-MM", baseSalary: 기본급 숫자, subsidyAmount: 신청 지원금액 숫자, subsidyType: "INTERN" 또는 "HIRE" })',
+    'entries(인원별 산출내역 배열 — 각 항목: { name: 성명, round: 회차 숫자, periodLabel: 급여월 "YYYY-MM", baseSalary: 기본급 숫자, subsidyAmount: 신청 지원금액 숫자, subsidyType: "INTERN"(인턴지원금) 또는 "HIRE"(계속고용지원금) 또는 "LONGTERM"(장기취업유지지원금) })',
   INSURANCE_ROSTER:
     'businessRegistrationNumber(사업자등록번호), companyName(사업체명), entries(가입자 목록 배열 — 각 항목: { name: 성명, acquisitionDate: 취득일 YYYY-MM-DD, healthInsuranceDate: 건강보험 취득일 YYYY-MM-DD, employmentInsuranceDate: 고용보험 취득일 YYYY-MM-DD })',
   PAYROLL:

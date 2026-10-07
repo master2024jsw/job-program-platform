@@ -28,7 +28,7 @@ import { Document } from './document.entity';
 import { BusinessesService } from '../businesses/businesses.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 
-const uploadDir = path.join(process.cwd(), 'data', 'uploads');
+const inboxDir = path.join(process.cwd(), 'data', '_inbox');
 
 @Controller('documents')
 export class DocumentsController {
@@ -42,11 +42,14 @@ export class DocumentsController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          fs.mkdirSync(uploadDir, { recursive: true });
-          cb(null, uploadDir);
+          fs.mkdirSync(inboxDir, { recursive: true });
+          cb(null, inboxDir);
         },
         filename: (_req, file, cb) => {
-          cb(null, `${randomUUID()}${path.extname(file.originalname)}`);
+          const now = new Date();
+          const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+          const hash = randomUUID().replace(/-/g, '').slice(0, 4);
+          cb(null, `${ts}_${hash}${path.extname(file.originalname)}`);
         },
       }),
       limits: { fileSize: 20 * 1024 * 1024 },

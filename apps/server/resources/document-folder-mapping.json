@@ -1,0 +1,47 @@
+{
+  "stages": [
+    {
+      "folder": "01_기업신청",
+      "hasWorkerSubfolder": false,
+      "hasSubsidyTypeSubfolder": false,
+      "documents": {
+        "COMPANY_APPLICATION": "01_기업신청서",
+        "BUSINESS_REGISTRATION": "02_사업자등록증",
+        "WORKPLACE_INSURANCE": "03_4대보험가입증명",
+        "OPERATION_PLAN": "04_운영계획서"
+      }
+    },
+    {
+      "folder": "02_근로자신청",
+      "hasWorkerSubfolder": true,
+      "hasSubsidyTypeSubfolder": false,
+      "documents": {
+        "WORKER_APPLICATION": "01_참여신청서",
+        "PRIVACY_CONSENT": "02_개인정보동의서",
+        "RESIDENT_ABSTRACT": "03_주민등록초본",
+        "EMPLOYMENT_INSURANCE_HISTORY": "04_고용보험이력",
+        "ELIGIBILITY_CONFIRM": "05_적격확인서",
+        "LABOR_CONTRACT": "06_근로계약서",
+        "EDUCATION_LEDGER": "07_교육대장"
+      }
+    },
+    {
+      "folder": "03_지원금신청",
+      "hasWorkerSubfolder": false,
+      "hasSubsidyTypeSubfolder": true,
+      "documents": {
+        "SUBSIDY_APPLICATION": "01_지원금신청서",
+        "SUBSIDY_CALCULATION": "02_산출내역",
+        "INSURANCE_ROSTER": "03_4대보험가입자명부",
+        "PAYROLL": "04_임금명세서",
+        "SALARY_TRANSFER": "05_이체확인증",
+        "BANK_ACCOUNT_COPY": "06_통장사본"
+      }
+    }
+  ],
+  "subsidyTypeLabels": {
+    "INTERN": "인턴지원금",
+    "HIRE": "계속고용지원금",
+    "LONGTERM": "장기취업유지지원금"
+  }
+}

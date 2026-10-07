@@ -43,6 +43,10 @@ export class Document {
   @Column({ name: 'sender_email', type: 'varchar', nullable: true })
   senderEmail?: string | null;
 
+  /** IMAP 수집 메일의 RFC 2822 Message-ID — 중복 수집 방지용 */
+  @Column({ name: 'imap_message_id', type: 'varchar', nullable: true, unique: false })
+  imapMessageId?: string | null;
+
   @Column({ type: 'varchar', default: DocumentAnalysisStatus.PENDING })
   status!: DocumentAnalysisStatus;
 

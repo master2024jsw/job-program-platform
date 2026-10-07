@@ -51,6 +51,8 @@ export function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [collecting, setCollecting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [analyzingSelected, setAnalyzingSelected] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState<DocumentTypeCode | ''>('');
   const [reviewing, setReviewing] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('current');
@@ -81,11 +83,43 @@ export function DocumentsPage() {
           ? await documentsApi.list({ unassigned: true })
           : await documentsApi.list({ businessId: currentBusinessId ?? undefined });
       setDocuments(data);
+      setSelectedIds(new Set());
     } catch (e) {
       setError(e instanceof Error ? e.message : '문서 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) =>
+      prev.size === documents.length ? new Set() : new Set(documents.map((d) => d.id)),
+    );
+  };
+
+  const handleAnalyzeSelected = async () => {
+    if (selectedIds.size === 0) return;
+    setAnalyzingSelected(true);
+    const targets = documents.filter((d) => selectedIds.has(d.id));
+    for (const doc of targets) {
+      setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, status: DocumentAnalysisStatus.ANALYZING } : d)));
+      try {
+        const updated = await documentsApi.analyze(doc.id);
+        setDocuments((prev) => prev.map((d) => (d.id === doc.id ? updated : d)));
+      } catch (e) {
+        window.alert(`'${doc.fileName}' 분석 실패: ${e instanceof Error ? e.message : '오류'}`);
+      }
+    }
+    setSelectedIds(new Set());
+    setAnalyzingSelected(false);
   };
 
   useEffect(() => {
@@ -169,6 +203,21 @@ export function DocumentsPage() {
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '삭제에 실패했습니다.');
     }
+  };
+
+  const handleDeleteAll = async () => {
+    if (documents.length === 0) return;
+    if (!window.confirm(`현재 목록의 문서 ${documents.length}건을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    const errors: string[] = [];
+    for (const doc of documents) {
+      try {
+        await documentsApi.remove(doc.id);
+      } catch {
+        errors.push(doc.fileName);
+      }
+    }
+    if (errors.length) window.alert(`${errors.length}건 삭제 실패:\n${errors.join('\n')}`);
+    await load();
   };
 
   return (
@@ -308,6 +357,20 @@ export function DocumentsPage() {
               </p>
             </div>
             <div className="toolbar-left">
+              <button
+                className="btn btn-primary"
+                onClick={handleAnalyzeSelected}
+                disabled={selectedIds.size === 0 || analyzingSelected}
+              >
+                {analyzingSelected ? '분석 중...' : `선택 분석 (${selectedIds.size})`}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDeleteAll}
+                disabled={documents.length === 0}
+              >
+                전체 삭제
+              </button>
               <button className="btn" onClick={() => documentsApi.exportReport()}>
                 AI 검토 보고서 다운로드
               </button>
@@ -348,9 +411,17 @@ export function DocumentsPage() {
           {error && <p className="error-text">{error}</p>}
 
           <div className="card">
+            <div style={{ overflowX: 'auto' }}>
             <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: '2rem' }}>
+                <input
+                  type="checkbox"
+                  checked={documents.length > 0 && selectedIds.size === documents.length}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th>파일명</th>
               <th>문서종류</th>
               <th>출처</th>
@@ -364,12 +435,12 @@ export function DocumentsPage() {
           <tbody>
             {loading && (
               <tr className="empty-row">
-                <td colSpan={8}>불러오는 중...</td>
+                <td colSpan={9}>불러오는 중...</td>
               </tr>
             )}
             {!loading && documents.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={8}>등록된 문서가 없습니다.</td>
+                <td colSpan={9}>등록된 문서가 없습니다.</td>
               </tr>
             )}
             {!loading &&
@@ -377,6 +448,13 @@ export function DocumentsPage() {
                 const missingItems = getMissingItems(doc);
                 return (
                 <tr key={doc.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(doc.id)}
+                      onChange={() => toggleSelect(doc.id)}
+                    />
+                  </td>
                   <td>{doc.fileName}</td>
                   <td>{documentTypeLabel(doc.documentType)}</td>
                   <td>{doc.source === 'IMAP' ? `메일 수집${doc.senderEmail ? ` (${doc.senderEmail})` : ''}` : '직접 업로드'}</td>
@@ -420,6 +498,7 @@ export function DocumentsPage() {
               })}
           </tbody>
             </table>
+            </div>
           </div>
         </>
       )}
