@@ -235,6 +235,8 @@ export class DomainValidationEngine {
         return this.salaryCompare(rule, input);
       case 'salaryTransferCheck':
         return this.salaryTransferCheck(rule, input);
+      case 'ageCheck':
+        return this.ageCheck(rule, input);
       case 'jobClassification':
       default:
         return this.jobClassificationCalc(rule, input);
@@ -273,6 +275,55 @@ export class DomainValidationEngine {
       verdict,
       message: `모집직종 ${hit.jobName}(${hit.code}) → ${eligibilityLabel}${hit.detail ? ` · 조건: ${hit.detail}` : ''}`,
       evidence: { code: hit.code, jobName: hit.jobName, judgment: hit.judgment, eligibilityLabel, detail: hit.detail ?? null },
+    };
+  }
+
+  /** R-200: 만연령 확인. WORKER_CONTEXT.birthDate 기준으로 만 나이 계산. */
+  private ageCheck(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
+    const doc = (rule.document ?? 'WORKER_CONTEXT') as DocumentTypeCode;
+    const field = rule.ageField ?? 'birthDate';
+    const minAge = rule.minAge ?? 60;
+    const data = input[doc];
+    const rawBirth = data ? data[field] : null;
+
+    if (!rawBirth) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'NEEDS_REVIEW',
+        message: '생년월일 정보가 없어 연령을 확인할 수 없습니다 (담당자 확인).',
+      };
+    }
+
+    const birthDate = parseDate(rawBirth);
+    if (!birthDate) {
+      return {
+        ruleId: rule.id,
+        type: rule.type,
+        label: rule.label,
+        verdict: 'NEEDS_REVIEW',
+        message: `생년월일 형식을 파싱할 수 없습니다: ${rawBirth} (담당자 확인).`,
+      };
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const hasPassedBirthday =
+      today.getMonth() > birthDate.getMonth() ||
+      (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+    if (!hasPassedBirthday) age -= 1;
+
+    const pass = age >= minAge;
+    return {
+      ruleId: rule.id,
+      type: rule.type,
+      label: rule.label,
+      verdict: pass ? 'PASS' : (rule.onFail ?? 'FAIL'),
+      message: pass
+        ? `만 ${age}세 — 연령 기준(만 ${minAge}세 이상) 충족.`
+        : `만 ${age}세 — 연령 기준(만 ${minAge}세 이상) 미달, 지원 불가.`,
+      evidence: { birthDate: String(rawBirth), age, minAge },
     };
   }
 

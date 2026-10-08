@@ -129,6 +129,15 @@ export class WorkerValidationService {
       byType[elKey] = { ...byType[elKey], name: byType[elKey]!.participantName };
     }
 
+    // 근로자 컨텍스트 주입 (R-200 만연령 확인)
+    const worker = await this.workersService.findOne(workerId).catch(() => null);
+    if (worker?.birthDate) {
+      byType['WORKER_CONTEXT' as DocumentTypeCode] = {
+        birthDate: worker.birthDate,
+        name: worker.name,
+      };
+    }
+
     // 기업 컨텍스트 주입 (R-204 90일 이내 확인, R-210 기업 정보 대조)
     const company = await this.companiesService.findOne(companyId).catch(() => null);
     if (company) {

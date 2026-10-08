@@ -55,6 +55,20 @@ const appStatusClass: Record<ApplicationStatus, string> = {
   [ApplicationStatus.SUBSIDY_GUIDANCE]: 'badge-info',
 };
 
+/** YYYY-MM-DD 생년월일 → 오늘 기준 만 나이 */
+function calcAge(birthDate: string | null | undefined): number | null {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const passed =
+    today.getMonth() > birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+  if (!passed) age -= 1;
+  return age;
+}
+
 export function WorkersPage() {
   const { currentBusinessId } = useAuth();
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -253,26 +267,24 @@ export function WorkersPage() {
             <tr>
               <th>이름</th>
               <th>생년월일</th>
-              <th>성별</th>
               <th>소속기업</th>
-              <th>직급</th>
-              <th>계약형태</th>
               <th>입사일</th>
               <th>연락처</th>
               <th>이메일</th>
-              <th>상태</th>
+              <th>연령검증</th>
+              <th>신청단계</th>
               <th>작업</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr className="empty-row">
-                <td colSpan={11}>불러오는 중...</td>
+                <td colSpan={9}>불러오는 중...</td>
               </tr>
             )}
             {!loading && workers.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={11}>등록된 근로자가 없습니다.</td>
+                <td colSpan={9}>등록된 근로자가 없습니다.</td>
               </tr>
             )}
             {!loading &&
@@ -280,13 +292,19 @@ export function WorkersPage() {
                 <tr key={w.id}>
                   <td>{w.name}</td>
                   <td>{w.birthDate}</td>
-                  <td>{w.gender ? genderLabel[w.gender] : '-'}</td>
                   <td>{w.companyId ? companyMap.get(w.companyId) ?? '-' : '-'}</td>
-                  <td>{w.position || '-'}</td>
-                  <td>{w.contractType ? contractLabel[w.contractType] : '-'}</td>
                   <td>{w.hireDate || '-'}</td>
                   <td>{w.phone || '-'}</td>
                   <td>{w.email || '-'}</td>
+                  <td>
+                    {(() => {
+                      const age = calcAge(w.birthDate);
+                      if (age === null) return <span className="badge badge-inactive">미확인</span>;
+                      return age >= 60
+                        ? <span className="badge badge-active">만 {age}세 ✓</span>
+                        : <span className="badge badge-failed">만 {age}세 — 연령미달</span>;
+                    })()}
+                  </td>
                   <td>
                     {w.applicationStatus ? (
                       <span className={`badge ${appStatusClass[w.applicationStatus]}`}>

@@ -14,6 +14,16 @@
   },
   "rules": [
     {
+      "id": "R-200",
+      "type": "calcRule",
+      "calcType": "ageCheck",
+      "label": "만 60세 이상 연령 확인 (참여자격)",
+      "document": "WORKER_CONTEXT",
+      "ageField": "birthDate",
+      "minAge": 60,
+      "onFail": "FAIL"
+    },
+    {
       "id": "R-201",
       "type": "crossCheck",
       "label": "초본·신청서 성명 일치",

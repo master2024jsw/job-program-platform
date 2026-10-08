@@ -44,6 +44,7 @@ export interface RuleDef {
     | 'dateCompare'
     | 'employmentHistoryDateCheck'
     | 'recentWorkplaceCheck'
+    | 'ageCheck'
     // 6단계 지원금 calcType
     | 'subsidyCalc'
     | 'subsidyTotalCheck'
@@ -51,6 +52,9 @@ export interface RuleDef {
     | 'insuranceRosterCheck'
     | 'salaryCompare'
     | 'salaryTransferCheck';
+  // ageCheck (R-200 만연령 확인)
+  minAge?: number;
+  ageField?: string;
   codeField?: string;
   titleField?: string;
   lookup?: string;
