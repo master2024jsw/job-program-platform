@@ -37,21 +37,29 @@ function extractName(data: Record<string, unknown>): string | null {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
 }
 
-/** extractedData에서 생년월일 추출 (주민번호 앞6자리 파생 또는 birthDate 직접) */
+/** extractedData에서 생년월일 추출 (주민번호 앞6자리 파생 또는 birthDate 직접)
+ *  "911128-*******" 처럼 뒤 7자리가 마스킹된 경우에도 앞 6자리(YYMMDD)로 파생한다.
+ *  성별 자리(*) 없을 때 yy ≥ 50 이면 1900년대, 아니면 2000년대로 추정.
+ */
 function extractBirthDate(data: Record<string, unknown>): string | null {
   if (typeof data.birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate)) {
     return data.birthDate;
   }
-  const rrn = typeof data.residentNumber === 'string' ? data.residentNumber.replace(/\D/g, '') : '';
-  if (rrn.length >= 7) {
-    const yy = rrn.slice(0, 2);
-    const mm = rrn.slice(2, 4);
-    const dd = rrn.slice(4, 6);
-    const gd = rrn[6];
-    const century = ['1', '2'].includes(gd) ? '19' : ['3', '4'].includes(gd) ? '20' : null;
-    return century ? `${century}${yy}-${mm}-${dd}` : null;
-  }
-  return null;
+  const raw = typeof data.residentNumber === 'string' ? data.residentNumber : '';
+  if (!raw) return null;
+  // 대시만 제거 (마스킹 문자 * # 등은 유지)
+  const noDash = raw.replace(/-/g, '');
+  const front = noDash.slice(0, 6);
+  if (!/^\d{6}$/.test(front)) return null;
+  const yy = front.slice(0, 2);
+  const mm = front.slice(2, 4);
+  const dd = front.slice(4, 6);
+  // 7번째 자리(성별코드)로 세기 결정, 마스킹 시 연도로 추정
+  const gd = noDash.length >= 7 ? noDash[6] : '';
+  const century = ['1', '2'].includes(gd) ? '19'
+    : ['3', '4'].includes(gd) ? '20'
+    : parseInt(yy, 10) >= 50 ? '19' : '20';
+  return `${century}${yy}-${mm}-${dd}`;
 }
 
 /** extractedData에서 성별 파생 (주민번호 7번째 자리 기준) */
@@ -410,8 +418,16 @@ export class DocumentsService {
 
     // 이 서류에서 생년월일 추출 (주민번호 앞6 또는 birthDate 직접)
     const birthDate = extractBirthDate(data);
+    const extractedRrn = typeof data.residentNumber === 'string' ? data.residentNumber : null;
+    this.logger.log(
+      `[그룹핑] docId=${document.id} type=${document.documentType} ` +
+      `residentNumber=${extractedRrn ?? '(없음)'} birthDate=${birthDate ?? '(없음)'} ` +
+      `groupKey=${birthDate ? `${document.companyId}+${birthDate}` : 'N/A'}`,
+    );
+
     if (!birthDate) {
-      this.logger.warn(`근로자 서류 미배정(생년월일 미추출): docId=${document.id}, type=${document.documentType}`);
+      // 생년월일 미추출 → 성명+companyId 폴백 (적격확인서 등 주민번호 없는 서류)
+      await this.absorbByName(document, data);
       return;
     }
 
@@ -491,6 +507,8 @@ export class DocumentsService {
 
       // 이름 재계산: 연결된 모든 서류에서 신뢰도 우선순위로 최적 이름 선택
       await this.recalcWorkerName(worker, document.companyId, [document, ...toBackfill]);
+      // 생년월일 없는 미배정 서류를 Worker 이름으로 흡수 (적격확인서 등)
+      await this.absorbUnassignedByWorkerName(worker, document.companyId);
     } catch (error) {
       this.logger.error(`근로자 그룹핑 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
     }
@@ -518,6 +536,53 @@ export class DocumentsService {
       await this.workersRepository.update(worker.id, { name: bestName });
       this.logger.log(`근로자 이름 확정: "${worker.name}" → "${bestName}" (우선순위=${bestPriority})`);
       worker.name = bestName;
+    }
+  }
+
+  /**
+   * 생년월일을 추출할 수 없는 서류(적격확인서 등)를 성명+companyId로 기존 Worker에 연결한다.
+   * 호출 시점: groupWorkerDocuments 에서 birthDate 미추출 즉시.
+   */
+  private async absorbByName(document: Document, data: Record<string, unknown>): Promise<void> {
+    const name = extractName(data);
+    if (!name) {
+      this.logger.warn(`근로자 서류 미배정(생년월일·성명 미추출): docId=${document.id}, type=${document.documentType}`);
+      return;
+    }
+    if (!document.companyId) return;
+    const worker = await this.workersRepository.findOne({
+      where: { companyId: document.companyId, name },
+    });
+    if (worker) {
+      document.workerId = worker.id;
+      await this.documentsRepository.save(document);
+      this.logger.log(`성명 폴백 흡수: name="${name}" → workerId=${worker.id} (docId=${document.id})`);
+    } else {
+      this.logger.warn(`근로자 서류 미배정(성명 "${name}" 매칭 Worker 없음): docId=${document.id}`);
+    }
+  }
+
+  /**
+   * birthDate 기반 그룹핑·이름 재계산 완료 후, 같은 companyId 내 미배정 서류 중
+   * 생년월일 없는 것을 Worker.name 과 비교해 흡수한다.
+   */
+  private async absorbUnassignedByWorkerName(worker: Worker, companyId: string): Promise<void> {
+    const workerDocTypes = new Set<string>(DocumentsService.WORKER_DOC_TYPES);
+    const unassigned = await this.documentsRepository.find({
+      where: { companyId, workerId: IsNull() },
+    });
+    const toAbsorb: Document[] = [];
+    for (const doc of unassigned) {
+      if (!doc.documentType || !workerDocTypes.has(doc.documentType)) continue;
+      const d = doc.extractedData as Record<string, unknown> | null;
+      if (!d) continue;
+      if (extractBirthDate(d)) continue;       // birthDate 있는 건 기본 로직으로 처리
+      const name = extractName(d);
+      if (name && name === worker.name) toAbsorb.push(doc);
+    }
+    if (toAbsorb.length > 0) {
+      await this.documentsRepository.update(toAbsorb.map((d) => d.id), { workerId: worker.id });
+      this.logger.log(`성명 매칭 흡수(포스트): worker="${worker.name}" (${worker.id}), ${toAbsorb.length}건`);
     }
   }
 

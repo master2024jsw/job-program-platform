@@ -31,7 +31,7 @@ const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
   EMPLOYMENT_INSURANCE_HISTORY:
     'name(성명), residentNumber(주민등록번호 — "######-#######" 형식, 서류에 표시된 경우), birthDate(생년월일 YYYY-MM-DD), workplaces(사업장 목록 배열 — 각 항목: { companyName: 사업장명, startDate: 취득일 YYYY-MM-DD, lossDate: 상실일 YYYY-MM-DD or null(현재 재직 중) })',
   ELIGIBILITY_CONFIRM:
-    'item1None(제외기준1 없음: true/false), item2None(제외기준2 없음: true/false), item3None(제외기준3 없음: true/false), item4None(제외기준4 없음: true/false), item5None(제외기준5 없음: true/false), item6Yes(참여가능조건6 네: true/false), applicantSignature(신청인 서명: true/false), companyStaffSignature(기업담당자 서명: true/false)',
+    'name(성명 — 서류에 기재된 참여자 성명, 있는 경우), item1None(제외기준1 없음: true/false), item2None(제외기준2 없음: true/false), item3None(제외기준3 없음: true/false), item4None(제외기준4 없음: true/false), item5None(제외기준5 없음: true/false), item6Yes(참여가능조건6 네: true/false), applicantSignature(신청인 서명: true/false), companyStaffSignature(기업담당자 서명: true/false)',
   LABOR_CONTRACT:
     'companyName(사업체명), phone(전화), representativeName(대표자명), workerName(근로자명), residentNumber(근로자 주민등록번호 — "######-#######" 형식, 표시된 경우), birthDate(근로자 생년월일 YYYY-MM-DD, 표시된 경우), internStartDate(인턴약정기간 시작일 YYYY-MM-DD), internEndDate(인턴약정기간 종료일 YYYY-MM-DD), hasInternKeyword(인턴/수습 또는 준하는 문구 있음: true/false), employerSignature(사업주 서명: true/false), workerSignature(근로자 서명: true/false)',
   EDUCATION_LEDGER:

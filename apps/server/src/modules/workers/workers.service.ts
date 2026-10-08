@@ -231,7 +231,7 @@ export class WorkersService {
         seq: i + 1,
         companyName: w.company?.name ?? '',
         phone: w.phone ?? '',
-        email: w.company?.email ?? '',
+        email: w.email ?? '',
         participationType: cbMap.get(w.companyId ?? '')?.participationType ?? '',
         name: w.name,
         residentNumber: maskRrnForLedger(w),
