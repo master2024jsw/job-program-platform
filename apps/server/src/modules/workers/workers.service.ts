@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Like, Repository } from 'typeorm';
-import { ContractType, Gender, WorkerStatus } from '@job-program/shared';
+import { ApplicationStatus, ContractType, Gender, WorkerStatus } from '@job-program/shared';
 import { buildExcelBuffer, readExcelRows, type ExcelColumn, type ImportSummary } from '../../common/excel.util';
 import { Worker } from './worker.entity';
 import { Company } from '../companies/company.entity';
@@ -41,6 +41,12 @@ const WORKER_STATUS_BY_LABEL: Record<string, WorkerStatus> = {
   RESIGNED: WorkerStatus.RESIGNED,
 };
 
+const APP_STATUS_LABEL: Record<ApplicationStatus, string> = {
+  [ApplicationStatus.UNDER_REVIEW]: '신청검토중',
+  [ApplicationStatus.APPLICATION_COMPLETE]: '신청완료',
+  [ApplicationStatus.SUBSIDY_GUIDANCE]: '지원금안내',
+};
+
 const EXCEL_COLUMNS: ExcelColumn[] = [
   { header: '이름', key: 'name', width: 14 },
   { header: '생년월일', key: 'birthDate', width: 14 },
@@ -54,7 +60,8 @@ const EXCEL_COLUMNS: ExcelColumn[] = [
   { header: '입사일', key: 'hireDate', width: 14 },
   { header: '퇴사일', key: 'resignDate', width: 14 },
   { header: '급여', key: 'salary', width: 12 },
-  { header: '상태', key: 'status', width: 10 },
+  { header: '고용상태', key: 'status', width: 10 },
+  { header: '신청단계', key: 'applicationStatus', width: 14 },
   { header: '메모', key: 'memo', width: 30 },
 ];
 
@@ -168,6 +175,7 @@ export class WorkersService {
       resignDate: w.resignDate ?? '',
       salary: w.salary ?? '',
       status: WORKER_STATUS_LABEL[w.status] ?? w.status,
+      applicationStatus: w.applicationStatus ? APP_STATUS_LABEL[w.applicationStatus] : '',
       memo: w.memo ?? '',
     }));
     return buildExcelBuffer('근로자목록', EXCEL_COLUMNS, rows);

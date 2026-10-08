@@ -9,7 +9,7 @@ import type {
   WorkerValidationResult,
   WorkerValidationStatus,
 } from '@job-program/shared';
-import { Gender } from '@job-program/shared';
+import { ApplicationStatus, Gender } from '@job-program/shared';
 import { Document } from '../documents/document.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { BusinessesService } from '../businesses/businesses.service';
@@ -263,6 +263,15 @@ export class WorkerValidationService {
 
     // 승인 후 재검증 및 HUMAN 이력
     const result = await this.validateWorker(dto.businessId, dto.companyId, workerId, false);
+
+    // 검증 COMPLETE → 신청단계를 '신청완료'로 자동 전환 (이미 더 앞선 단계면 유지)
+    if (result.status === 'COMPLETE') {
+      const current = worker.applicationStatus;
+      if (!current || current === ApplicationStatus.UNDER_REVIEW) {
+        await this.workersService.update(workerId, { applicationStatus: ApplicationStatus.APPLICATION_COMPLETE });
+      }
+    }
+
     await this.judgmentHistoryService.record({
       businessId: dto.businessId,
       targetType: TARGET_WORKER,

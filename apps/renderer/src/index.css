@@ -316,6 +316,16 @@ table.data-table {
   color: var(--danger);
 }
 
+.badge-warning {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #d97706;
+}
+
+.badge-info {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

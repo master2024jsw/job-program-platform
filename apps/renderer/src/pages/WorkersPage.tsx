@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ContractType, Gender, WorkerStatus, type Company, type Worker } from '@job-program/shared';
+import { ApplicationStatus, ContractType, Gender, WorkerStatus, type Company, type Worker } from '@job-program/shared';
 import { workersApi, type WorkerInput } from '../api/workers';
 import { companiesApi } from '../api/companies';
 import type { ImportSummary } from '../api/client';
@@ -22,6 +22,7 @@ const emptyForm: WorkerInput = {
   resignDate: '',
   salary: undefined,
   status: WorkerStatus.ACTIVE,
+  applicationStatus: undefined,
   memo: '',
 };
 
@@ -40,6 +41,18 @@ const statusLabel: Record<WorkerStatus, string> = {
   [WorkerStatus.ACTIVE]: '재직',
   [WorkerStatus.ON_LEAVE]: '휴직',
   [WorkerStatus.RESIGNED]: '퇴사',
+};
+
+const appStatusLabel: Record<ApplicationStatus, string> = {
+  [ApplicationStatus.UNDER_REVIEW]: '신청검토중',
+  [ApplicationStatus.APPLICATION_COMPLETE]: '신청완료',
+  [ApplicationStatus.SUBSIDY_GUIDANCE]: '지원금안내',
+};
+
+const appStatusClass: Record<ApplicationStatus, string> = {
+  [ApplicationStatus.UNDER_REVIEW]: 'badge-warning',
+  [ApplicationStatus.APPLICATION_COMPLETE]: 'badge-active',
+  [ApplicationStatus.SUBSIDY_GUIDANCE]: 'badge-info',
 };
 
 export function WorkersPage() {
@@ -119,6 +132,7 @@ export function WorkersPage() {
       resignDate: worker.resignDate ?? '',
       salary: worker.salary ?? undefined,
       status: worker.status,
+      applicationStatus: worker.applicationStatus ?? undefined,
       memo: worker.memo ?? '',
     });
     setFormError(null);
@@ -274,11 +288,17 @@ export function WorkersPage() {
                   <td>{w.phone || '-'}</td>
                   <td>{w.email || '-'}</td>
                   <td>
-                    <span
-                      className={`badge ${w.status === WorkerStatus.ACTIVE ? 'badge-active' : 'badge-inactive'}`}
-                    >
-                      {statusLabel[w.status]}
-                    </span>
+                    {w.applicationStatus ? (
+                      <span className={`badge ${appStatusClass[w.applicationStatus]}`}>
+                        {appStatusLabel[w.applicationStatus]}
+                      </span>
+                    ) : (
+                      <span
+                        className={`badge ${w.status === WorkerStatus.ACTIVE ? 'badge-active' : 'badge-inactive'}`}
+                      >
+                        {statusLabel[w.status]}
+                      </span>
+                    )}
                   </td>
                   <td className="actions">
                     <button className="btn btn-sm" onClick={() => openEdit(w)}>
@@ -432,7 +452,7 @@ export function WorkersPage() {
                 />
               </div>
               <div className="field">
-                <label>상태</label>
+                <label>고용상태</label>
                 <select
                   className="select-input"
                   value={form.status}
@@ -441,6 +461,24 @@ export function WorkersPage() {
                   <option value={WorkerStatus.ACTIVE}>재직</option>
                   <option value={WorkerStatus.ON_LEAVE}>휴직</option>
                   <option value={WorkerStatus.RESIGNED}>퇴사</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>신청단계</label>
+                <select
+                  className="select-input"
+                  value={form.applicationStatus ?? ''}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      applicationStatus: e.target.value ? (e.target.value as ApplicationStatus) : undefined,
+                    })
+                  }
+                >
+                  <option value="">-- 미설정 --</option>
+                  <option value={ApplicationStatus.UNDER_REVIEW}>신청검토중</option>
+                  <option value={ApplicationStatus.APPLICATION_COMPLETE}>신청완료</option>
+                  <option value={ApplicationStatus.SUBSIDY_GUIDANCE}>지원금안내</option>
                 </select>
               </div>
               <div className="field full">

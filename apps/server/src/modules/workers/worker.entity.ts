@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { ContractType, Gender, WorkerStatus } from '@job-program/shared';
+import { ApplicationStatus, ContractType, Gender, WorkerStatus } from '@job-program/shared';
 import { Company } from '../companies/company.entity';
 
 @Entity('workers')
@@ -53,6 +53,9 @@ export class Worker {
 
   @Column({ type: 'varchar', default: WorkerStatus.ACTIVE })
   status!: WorkerStatus;
+
+  @Column({ name: 'application_status', type: 'varchar', nullable: true })
+  applicationStatus?: ApplicationStatus | null;
 
   @Column({ type: 'text', nullable: true })
   memo?: string | null;
