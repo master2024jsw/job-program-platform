@@ -271,7 +271,7 @@ export function WorkersPage() {
               <th>입사일</th>
               <th>연락처</th>
               <th>이메일</th>
-              <th>연령검증</th>
+              <th>검증결과</th>
               <th>신청단계</th>
               <th>작업</th>
             </tr>
@@ -301,8 +301,8 @@ export function WorkersPage() {
                       const age = calcAge(w.birthDate);
                       if (age === null) return <span className="badge badge-inactive">미확인</span>;
                       return age >= 60
-                        ? <span className="badge badge-active">만 {age}세 ✓</span>
-                        : <span className="badge badge-failed">만 {age}세 — 연령미달</span>;
+                        ? <span className="badge badge-active">적격</span>
+                        : <span className="badge badge-failed">연령미달</span>;
                     })()}
                   </td>
                   <td>
