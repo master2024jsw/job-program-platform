@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CompanyStatus, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
+import { CompanyStatus, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, Gender, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
 import { maskDeep } from '../../common/masking.util';
 import { ValidationService } from '../validation/validation.service';
@@ -19,6 +19,53 @@ import { AnalyzeDocumentDto } from './dto/analyze-document.dto';
 import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
 import { FileRouterService } from './file-router.service';
+
+// ── 근로자 그룹핑 헬퍼 ──────────────────────────────────────────────────────
+
+/** 이름 신뢰도 우선순위 — 높을수록 우선 */
+const NAME_PRIORITY: Partial<Record<DocumentTypeCode, number>> = {
+  RESIDENT_ABSTRACT: 10,           // 공식 주민등록 서류 (최우선)
+  EMPLOYMENT_INSURANCE_HISTORY: 8, // 인쇄체
+  LABOR_CONTRACT: 5,               // 인쇄체
+  EDUCATION_LEDGER: 5,             // 인쇄체
+  WORKER_APPLICATION: 1,           // 필기체 (최하)
+};
+
+/** extractedData에서 이름 추출 (서류 유형마다 필드명이 다름) */
+function extractName(data: Record<string, unknown>): string | null {
+  const raw = data.name ?? data.workerName ?? data.participantName;
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+/** extractedData에서 생년월일 추출 (주민번호 앞6자리 파생 또는 birthDate 직접) */
+function extractBirthDate(data: Record<string, unknown>): string | null {
+  if (typeof data.birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate)) {
+    return data.birthDate;
+  }
+  const rrn = typeof data.residentNumber === 'string' ? data.residentNumber.replace(/\D/g, '') : '';
+  if (rrn.length >= 7) {
+    const yy = rrn.slice(0, 2);
+    const mm = rrn.slice(2, 4);
+    const dd = rrn.slice(4, 6);
+    const gd = rrn[6];
+    const century = ['1', '2'].includes(gd) ? '19' : ['3', '4'].includes(gd) ? '20' : null;
+    return century ? `${century}${yy}-${mm}-${dd}` : null;
+  }
+  return null;
+}
+
+/** extractedData에서 성별 파생 (주민번호 7번째 자리 기준) */
+function extractGender(data: Record<string, unknown>): { gender: Gender | null } {
+  const rrn = typeof data.residentNumber === 'string' ? data.residentNumber.replace(/\D/g, '') : '';
+  if (rrn.length >= 7) {
+    const gd = rrn[6];
+    if (['1', '3'].includes(gd)) return { gender: Gender.MALE };
+    if (['2', '4'].includes(gd)) return { gender: Gender.FEMALE };
+  }
+  return { gender: null };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<DocumentAnalysisStatus, string> = {
   [DocumentAnalysisStatus.PENDING]: '대기',
@@ -169,7 +216,7 @@ export class DocumentsService {
     let saved = await this.documentsRepository.save(document);
     await this.autoRegisterCompanyIfNew(saved);
     await this.runCompanyValidationIfApplicable(saved);
-    await this.autoRegisterWorkerIfNew(saved);
+    await this.groupWorkerDocuments(saved);
     await this.runWorkerValidationIfApplicable(saved);
 
     if (saved.status === DocumentAnalysisStatus.ANALYZED) {
@@ -344,108 +391,133 @@ export class DocumentsService {
    * companyId 컨텍스트(IMAP 발신자 매칭 또는 담당자 지정)가 반드시 있어야 한다.
    * 기업명 문자열 매칭 금지 — companyId가 없으면 등록하지 않는다.
    */
-  private async autoRegisterWorkerIfNew(document: Document): Promise<void> {
+  /**
+   * 근로자 서류 그룹핑 (변경2~5).
+   * - 트리거: 어떤 근로자 서류 유형이든 ANALYZED 되면 실행
+   * - 그룹 키: companyId + birthDate (주민번호 앞6자리 파생)
+   * - 매칭: companyId + birthDate 로만 기존 Worker 검색 (이름은 OCR 오류 가능)
+   * - 이름 확정: 신뢰도 우선순위 (초본 > 고용보험 > 계약서·교육 > 신청서)
+   * - 미배정: 생년월일 미추출 → workerId = null 유지, 로그만 남김
+   */
+  private async groupWorkerDocuments(document: Document): Promise<void> {
     if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
-    if (document.documentType !== 'WORKER_APPLICATION') return;
-    if (document.workerId) {
-      // 연결된 근로자가 실제로 존재하는지 확인 (테스트 리셋 등으로 삭제됐을 수 있음)
-      const exists = await this.workersRepository.findOne({ where: { id: document.workerId } });
-      if (exists) return;
-      document.workerId = null;
-      await this.documentsRepository.save(document);
-    }
-    if (!document.companyId) return; // companyId 컨텍스트 없으면 등록 불가
+    if (!document.companyId) return;
+    const workerDocTypes = new Set<string>(DocumentsService.WORKER_DOC_TYPES);
+    if (!document.documentType || !workerDocTypes.has(document.documentType)) return;
 
     const data = document.extractedData as Record<string, unknown> | null;
     if (!data) return;
 
-    const rawName = data.name;
-    if (typeof rawName !== 'string' || !rawName.trim()) return;
+    // 이 서류에서 생년월일 추출 (주민번호 앞6 또는 birthDate 직접)
+    const birthDate = extractBirthDate(data);
+    if (!birthDate) {
+      this.logger.warn(`근로자 서류 미배정(생년월일 미추출): docId=${document.id}, type=${document.documentType}`);
+      return;
+    }
 
-    const name = rawName.trim();
+    // dangling workerId 감지: 연결된 근로자가 실제로 DB에 없는 경우
+    let danglingId: string | null = null;
+    if (document.workerId) {
+      const exists = await this.workersRepository.findOne({ where: { id: document.workerId } });
+      if (!exists) {
+        danglingId = document.workerId;
+        // QueryBuilder로 null 설정 (TypeORM update null 미적용 이슈 우회)
+        await this.documentsRepository
+          .createQueryBuilder()
+          .update()
+          .set({ workerId: () => 'NULL' })
+          .where('company_id = :cid AND worker_id = :wid', { cid: document.companyId, wid: danglingId })
+          .execute();
+        document.workerId = null;
+      } else {
+        // 유효한 Worker에 이미 연결됨 → 이름 재계산만 수행
+        await this.recalcWorkerName(exists, document.companyId);
+        return;
+      }
+    }
 
     try {
-      // 주민번호 앞 6자리 → 생년월일 파생
-      const rawRrn = typeof data.residentNumber === 'string' ? data.residentNumber.replace(/\D/g, '') : '';
-      let birthDate: string | undefined;
-      let gender: string | undefined;
-      if (rawRrn.length >= 7) {
-        const yy = rawRrn.slice(0, 2);
-        const mm = rawRrn.slice(2, 4);
-        const dd = rawRrn.slice(4, 6);
-        const gd = rawRrn[6];
-        const century = ['1', '2'].includes(gd) ? '19' : ['3', '4'].includes(gd) ? '20' : null;
-        birthDate = century ? `${century}${yy}-${mm}-${dd}` : undefined;
-        gender = ['1', '3'].includes(gd) ? 'MALE' : ['2', '4'].includes(gd) ? 'FEMALE' : undefined;
-      }
-
-      // 같은 기업·사업 내 동명이인 방지: 이름+생년월일 조합으로 기존 근로자 검색
-      let worker = birthDate
-        ? await this.workersRepository.findOne({ where: { companyId: document.companyId, name, birthDate } })
-        : await this.workersRepository.findOne({ where: { companyId: document.companyId, name } });
+      // companyId + birthDate 로 기존 Worker 조회 (이름 불일치 무관)
+      let worker = await this.workersRepository.findOne({
+        where: { companyId: document.companyId, birthDate },
+      });
 
       if (!worker) {
+        // 신규 Worker 생성: 이름은 일단 이 서류에서 얻을 수 있는 것으로, 나중에 재계산
+        const tempName = extractName(data) ?? '(미확정)';
+        const { gender } = extractGender(data);
         const newWorker = new Worker();
-        newWorker.name = name;
-        newWorker.birthDate = birthDate ?? '1900-01-01';
-        if (gender) newWorker.gender = gender as Worker['gender'];
-        if (typeof data.phone === 'string') newWorker.phone = data.phone;
+        newWorker.name = tempName;
+        newWorker.birthDate = birthDate;
         newWorker.companyId = document.companyId;
-        newWorker.businessId = document.businessId;
+        newWorker.businessId = document.businessId ?? null;
         newWorker.status = WorkerStatus.ACTIVE;
+        if (gender) newWorker.gender = gender;
+        if (typeof data.phone === 'string' && data.phone) newWorker.phone = data.phone;
         worker = await this.workersRepository.save(newWorker);
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.logger.log(`근로자 자동 등록: ${worker!.name} (id=${worker!.id}, companyId=${document.companyId})`);
+        this.logger.log(`근로자 자동 등록: birthDate=${birthDate} (id=${worker.id}, companyId=${document.companyId})`);
       }
 
-      // WORKER_APPLICATION 문서에 근로자 연결
-      document.workerId = worker!.id;
+      // 이 문서에 workerId 연결
+      document.workerId = worker.id;
       await this.documentsRepository.save(document);
 
-      // 같은 메일(imapMessageId)에서 함께 온 근로자 서류에도 workerId를 backfill한다.
-      // (신청서 외 나머지 서류들은 analyzeWorkerIfNew가 실행되지 않아 workerId가 null로 남음)
-      if (document.imapMessageId) {
-        const siblings = await this.documentsRepository.find({
-          where: {
-            imapMessageId: document.imapMessageId,
-            workerId: IsNull(),
-          },
-        });
-        const workerDocTypes = new Set<string>(DocumentsService.WORKER_DOC_TYPES);
-        const toUpdate = siblings.filter((s) => s.documentType && workerDocTypes.has(s.documentType));
-        if (toUpdate.length > 0) {
-          await this.documentsRepository.update(
-            toUpdate.map((s) => s.id),
-            { workerId: worker!.id },
-          );
-          this.logger.log(`근로자 서류 backfill: workerId=${worker!.id}, ${toUpdate.length}건`);
-        }
+      // 같은 companyId의 근로자 서류 중 workerId가 null이거나 dangling인 것을 생년월일로 backfill
+      const candidates = await this.documentsRepository.find({
+        where: danglingId
+          ? [
+              { companyId: document.companyId, workerId: IsNull() },
+              { companyId: document.companyId, workerId: danglingId },
+            ]
+          : { companyId: document.companyId, workerId: IsNull() },
+      });
 
-        // 다수결 교차검증: 형제 서류들의 이름 필드를 모아 가장 많이 나오는 이름으로 보정
-        // (신청서 OCR 오류를 다른 서류들이 교정)
-        const nameTally = new Map<string, number>();
-        const allDocs = [document, ...toUpdate];
-        for (const doc of allDocs) {
-          const d = doc.extractedData as Record<string, unknown> | null;
-          if (!d) continue;
-          // 서류 유형마다 이름 필드명이 다름
-          const candidate = (d.name ?? d.workerName ?? d.participantName);
-          if (typeof candidate === 'string' && candidate.trim()) {
-            const n = candidate.trim();
-            nameTally.set(n, (nameTally.get(n) ?? 0) + 1);
-          }
-        }
-        if (nameTally.size > 1) {
-          const majorityName = [...nameTally.entries()].sort((a, b) => b[1] - a[1])[0][0];
-          if (majorityName !== worker!.name) {
-            await this.workersRepository.update(worker!.id, { name: majorityName });
-            this.logger.warn(`근로자 이름 다수결 보정: "${worker!.name}" → "${majorityName}" (투표: ${JSON.stringify(Object.fromEntries(nameTally))})`);
-            worker!.name = majorityName;
-          }
-        }
+      const toBackfill: Document[] = [];
+      for (const c of candidates) {
+        if (c.id === document.id) continue;
+        if (!c.documentType || !workerDocTypes.has(c.documentType)) continue;
+        const d = c.extractedData as Record<string, unknown> | null;
+        if (!d) continue;
+        if (extractBirthDate(d) === birthDate) toBackfill.push(c);
       }
+
+      if (toBackfill.length > 0) {
+        await this.documentsRepository.update(
+          toBackfill.map((c) => c.id),
+          { workerId: worker.id },
+        );
+        this.logger.log(`근로자 서류 backfill: workerId=${worker.id}, ${toBackfill.length}건`);
+      }
+
+      // 이름 재계산: 연결된 모든 서류에서 신뢰도 우선순위로 최적 이름 선택
+      await this.recalcWorkerName(worker, document.companyId, [document, ...toBackfill]);
     } catch (error) {
-      this.logger.error(`근로자 자동 등록 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
+      this.logger.error(`근로자 그룹핑 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  /** 동일 workerId가 붙은 모든 서류를 보고 신뢰도 우선순위로 Worker.name을 갱신한다. */
+  private async recalcWorkerName(worker: Worker, companyId: string, extraDocs?: Document[]): Promise<void> {
+    const linked = await this.documentsRepository.find({ where: { companyId, workerId: worker.id } });
+    const allDocs = [...linked, ...(extraDocs ?? [])];
+    // 중복 제거
+    const seen = new Set<string>();
+    const unique = allDocs.filter((d) => { if (seen.has(d.id)) return false; seen.add(d.id); return true; });
+
+    let bestName: string | null = null;
+    let bestPriority = -1;
+    for (const doc of unique) {
+      const priority = NAME_PRIORITY[doc.documentType as DocumentTypeCode] ?? 0;
+      if (priority <= bestPriority) continue;
+      const d = doc.extractedData as Record<string, unknown> | null;
+      const name = d ? extractName(d) : null;
+      if (name) { bestName = name; bestPriority = priority; }
+    }
+
+    if (bestName && bestName !== worker.name) {
+      await this.workersRepository.update(worker.id, { name: bestName });
+      this.logger.log(`근로자 이름 확정: "${worker.name}" → "${bestName}" (우선순위=${bestPriority})`);
+      worker.name = bestName;
     }
   }
 
