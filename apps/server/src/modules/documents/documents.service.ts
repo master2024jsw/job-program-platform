@@ -347,7 +347,13 @@ export class DocumentsService {
   private async autoRegisterWorkerIfNew(document: Document): Promise<void> {
     if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
     if (document.documentType !== 'WORKER_APPLICATION') return;
-    if (document.workerId) return; // 이미 근로자 연결됨
+    if (document.workerId) {
+      // 연결된 근로자가 실제로 존재하는지 확인 (테스트 리셋 등으로 삭제됐을 수 있음)
+      const exists = await this.workersRepository.findOne({ where: { id: document.workerId } });
+      if (exists) return;
+      document.workerId = null;
+      await this.documentsRepository.save(document);
+    }
     if (!document.companyId) return; // companyId 컨텍스트 없으면 등록 불가
 
     const data = document.extractedData as Record<string, unknown> | null;
