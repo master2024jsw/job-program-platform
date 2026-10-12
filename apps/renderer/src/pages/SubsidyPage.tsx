@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import type { MailTemplate, Worker } from '@job-program/shared';
+import type { Company, MailTemplate, Worker } from '@job-program/shared';
 import { subsidyApi, type SubsidyEligibilityRow, type SubsidyCalculationRow } from '../api/subsidy';
 import { mailApi, mailTemplatesApi } from '../api/mail';
 import { workersApi } from '../api/workers';
+import { companiesApi } from '../api/companies';
 import { useAuth } from '../auth/AuthContext';
+import { SubsidyValidationPanel } from '../components/SubsidyValidationPanel';
 
-type SubTab = 'eligibility' | 'calculation';
+type SubTab = 'eligibility' | 'calculation' | 'validation';
 
 export function SubsidyPage() {
   const [subTab, setSubTab] = useState<SubTab>('eligibility');
@@ -25,10 +27,17 @@ export function SubsidyPage() {
         >
           산정 관리
         </button>
+        <button
+          className={`btn btn-sm ${subTab === 'validation' ? 'btn-primary' : ''}`}
+          onClick={() => setSubTab('validation')}
+        >
+          서류 검증
+        </button>
       </div>
 
       {subTab === 'eligibility' && <EligibilityPanel />}
       {subTab === 'calculation' && <CalculationPanel />}
+      {subTab === 'validation' && <ValidationPanel />}
     </div>
   );
 }
@@ -440,6 +449,58 @@ function CalculationPanel() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ValidationPanel() {
+  const { currentBusinessId } = useAuth();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState('');
+
+  useEffect(() => {
+    companiesApi
+      .list({ businessId: currentBusinessId ?? undefined })
+      .then((list) => {
+        setCompanies(list);
+        if (list.length > 0 && !companyId) setCompanyId(list[0].id);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBusinessId]);
+
+  if (!currentBusinessId) return <p className="hint-text">사업을 먼저 선택하세요.</p>;
+
+  return (
+    <div>
+      <div className="toolbar" style={{ alignItems: 'center', marginBottom: '0.75rem' }}>
+        <div className="toolbar-left" style={{ gap: '0.5rem', alignItems: 'center' }}>
+          <label style={{ fontWeight: 600 }}>기업 선택</label>
+          <select
+            className="text-input"
+            style={{ minWidth: 200 }}
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+          >
+            {companies.length === 0 && <option value="">기업 없음</option>}
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {companyId ? (
+        <SubsidyValidationPanel
+          key={companyId}
+          businessId={currentBusinessId}
+          companyId={companyId}
+        />
+      ) : (
+        <p className="hint-text">기업을 선택하면 검증 결과가 표시됩니다.</p>
+      )}
     </div>
   );
 }
