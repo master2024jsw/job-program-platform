@@ -26,7 +26,9 @@ export interface RuleDef {
   documents?: DocumentTypeCode[];
   /** crossCheck 전용: 있으면 포함, 없으면 건너뜀 */
   optionalDocuments?: DocumentTypeCode[];
-  normalize?: 'brn';
+  normalize?: 'brn' | 'companyName';
+  /** crossCheck 전용: 서류마다 다른 필드명을 쓸 때. { "SUBSIDY_APPLICATION": "bankAccount" } 처럼 지정하면 해당 서류에서만 그 필드를 읽는다. */
+  fieldMap?: Partial<Record<string, string>>;
   onMismatch?: RuleVerdict;
   // riskFlag
   document?: DocumentTypeCode;

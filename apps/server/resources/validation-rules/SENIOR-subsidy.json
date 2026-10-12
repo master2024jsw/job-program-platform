@@ -52,10 +52,40 @@
     {
       "id": "R-308",
       "type": "crossCheck",
-      "label": "(통장사본 제출 시) 계좌정보 신청서 일치 확인",
+      "label": "(통장사본 제출 시) 신청서↔통장 은행명 일치 확인",
       "skipIfMissing": ["BANK_ACCOUNT_COPY"],
-      "field": "bankAccount",
+      "field": "bankName",
       "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-308a",
+      "type": "crossCheck",
+      "label": "(통장사본 제출 시) 신청서↔통장 예금주 일치 확인",
+      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "field": "accountHolder",
+      "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-308b",
+      "type": "crossCheck",
+      "label": "(통장사본 제출 시) 신청서↔통장 계좌번호 일치 확인",
+      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "field": "accountNumber",
+      "fieldMap": { "SUBSIDY_APPLICATION": "bankAccount" },
+      "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "onMismatch": "NEEDS_REVIEW"
+    },
+    {
+      "id": "R-308c",
+      "type": "crossCheck",
+      "label": "(통장사본 제출 시) 통장 예금주 = 기업 법인상호 확인 (법인명의 여부)",
+      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "field": "accountHolder",
+      "fieldMap": { "COMPANY_CONTEXT": "companyName" },
+      "documents": ["BANK_ACCOUNT_COPY", "COMPANY_CONTEXT"],
+      "normalize": "companyName",
       "onMismatch": "NEEDS_REVIEW"
     },
     {

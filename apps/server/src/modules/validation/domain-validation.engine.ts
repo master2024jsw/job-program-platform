@@ -4,6 +4,17 @@ import type { ExtractedByDocumentType } from '../../common/domain-validation-eng
 import { JobClassificationService } from './job-classification.service';
 import type { MultiDocCheck, RuleDef, RuleLedger } from './validation-rules.service';
 
+/** 기업 상호 정규화: 공백·법인격 토큰(㈜/(주)/주식회사 등) 제거 후 소문자. 핵심 상호만 남긴다. */
+function normalizeCompanyName(raw: unknown): string | null {
+  if (raw == null) return null;
+  const s = String(raw)
+    .replace(/\s/g, '')
+    .replace(/㈜|㈔|\(주\)|\(사\)|주식회사|유한회사|합자회사|합명회사/gi, '')
+    .toLowerCase()
+    .trim();
+  return s || null;
+}
+
 /** 사업자등록번호 정규화: 숫자 10자리 → 000-00-00000. 형식이 안 맞으면 null. */
 function normalizeBrn(raw: unknown): string | null {
   if (raw == null) return null;
@@ -101,10 +112,15 @@ export class DomainValidationEngine {
 
     const collected: { doc: DocumentTypeCode; raw: unknown; norm: string | null; present: boolean }[] = docs.map(
       (doc) => {
+        // fieldMap[doc]이 있으면 그 이름으로, 없으면 rule.field로 읽는다
+        const fieldName = (rule.fieldMap?.[doc as string]) ?? field;
         const data = input[doc];
-        const present = !!data && data[field] != null && String(data[field]).trim() !== '';
-        const raw = data ? data[field] : undefined;
-        const norm = rule.normalize === 'brn' ? normalizeBrn(raw) : raw == null ? null : String(raw).trim();
+        const present = !!data && data[fieldName] != null && String(data[fieldName]).trim() !== '';
+        const raw = data ? data[fieldName] : undefined;
+        const norm =
+          rule.normalize === 'brn' ? normalizeBrn(raw) :
+          rule.normalize === 'companyName' ? normalizeCompanyName(raw) :
+          raw == null ? null : String(raw).trim();
         return { doc, raw, norm, present };
       },
     );
