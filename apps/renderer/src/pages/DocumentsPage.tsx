@@ -554,7 +554,7 @@ export function DocumentsPage() {
       )}
 
       {combinedTarget && (
-        <Modal onClose={() => { setCombinedTarget(null); setCombinedCompanyId(''); }}>
+        <Modal title="합본 분석 — 기업 선택" onClose={() => { setCombinedTarget(null); setCombinedCompanyId(''); }}>
           <h3 style={{ marginTop: 0 }}>합본 분석 — 기업 선택</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
             이 PDF가 어느 기업의 서류인지 선택하면 분리된 문서가 해당 기업에 자동 연결됩니다.

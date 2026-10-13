@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import * as net from 'net';
 import { spawn, ChildProcess, exec } from 'child_process';
 
@@ -58,21 +59,56 @@ async function startServer(): Promise<void> {
   await killPort3000();
   await new Promise<void>((r) => setTimeout(r, 300));
 
-  serverProcess = spawn('node', ['dist/main.js'], {
+  const dataDir = path.join(app.getPath('userData'), 'data');
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+  const serverEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    DB_PATH: path.join(dataDir, 'job-program.sqlite'),
+    // 렌더러를 서버와 같은 origin에서 서빙하게 해 세션 쿠키가 전송되도록 한다.
+    ...(isDev ? {} : { RENDERER_DIST: path.join(process.resourcesPath, 'renderer/dist') }),
+  };
+
+  // 사용자가 userData에 .env 파일을 두었으면 병합 (SMTP, GEMINI 등 민감 설정)
+  const userEnvFile = path.join(app.getPath('userData'), '.env');
+  if (fs.existsSync(userEnvFile)) {
+    for (const line of fs.readFileSync(userEnvFile, 'utf8').split('\n')) {
+      const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m) serverEnv[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
+    }
+  }
+
+  const proc = spawn('node', ['dist/main.js'], {
     cwd: serverDir(),
-    env: { ...process.env },
+    env: serverEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  serverProcess = proc;
 
-  serverProcess.stdout?.on('data', (d: Buffer) => process.stdout.write(d.toString()));
-  serverProcess.stderr?.on('data', (d: Buffer) => process.stderr.write(d.toString()));
-  serverProcess.on('exit', (code) => {
-    serverProcess = null;
-    if (code !== 0 && code !== null) console.error(`[SERVER] 비정상 종료: ${code}`);
+  let recentOutput = '';
+  const capture = (d: Buffer) => {
+    const s = d.toString();
+    process.stdout.write(s);
+    recentOutput = (recentOutput + s).slice(-4000);
+  };
+  proc.stdout?.on('data', capture);
+  proc.stderr?.on('data', capture);
+
+  let started = false;
+  proc.on('exit', (code) => {
+    if (serverProcess === proc) serverProcess = null;
+    if (started && code !== 0 && code !== null) console.error(`[SERVER] 비정상 종료: ${code}`);
   });
 
-  // 포트가 열릴 때까지 폴링 (최대 120초)
-  await waitForPort(3000, 120_000);
+  // 서버가 포트를 열기 전에 죽으면 120초를 기다리지 않고 즉시 실패시킨다.
+  const earlyExit = new Promise<never>((_, reject) => {
+    proc.on('exit', (code) => {
+      if (!started) reject(new Error(`서버 프로세스가 기동 중 종료되었습니다 (code=${code}).\n${recentOutput}`));
+    });
+  });
+
+  await Promise.race([waitForPort(3000, 120_000), earlyExit]);
+  started = true;
 }
 
 function createWindow() {
@@ -90,7 +126,8 @@ function createWindow() {
     mainWin.loadURL('http://localhost:5173');
     mainWin.webContents.openDevTools();
   } else {
-    mainWin.loadFile(path.join(process.resourcesPath, 'renderer/dist/index.html'));
+    // 서버와 같은 origin(http://localhost:3000)에서 로드해야 세션 쿠키가 유지된다.
+    mainWin.loadURL('http://localhost:3000');
   }
 }
 

@@ -11,13 +11,15 @@
   },
   "devDependencies": {
     "@types/node": "^20.16.0",
-    "electron": "^32.0.0",
-    "electron-builder": "^25.0.0",
+    "electron": "32.3.3",
+    "electron-builder": "^25.1.8",
     "typescript": "^5.6.0"
   },
   "build": {
     "appId": "kr.jobprogram.platform",
     "productName": "잡도리AI",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
     "directories": {
       "output": "release"
     },
@@ -35,26 +37,34 @@
         "to": "server/dist"
       },
       {
-        "from": "../server/node_modules",
+        "from": "../server/.prod-bundle/node_modules",
         "to": "server/node_modules"
       },
       {
         "from": "../server/resources",
         "to": "server/resources",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
-      ],
-      "icon": "assets/icon.ico"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "installerLanguages": ["ko_KR"],
+      "installerLanguages": [
+        "ko_KR"
+      ],
       "language": "1042"
     }
   }

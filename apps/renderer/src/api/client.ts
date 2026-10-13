@@ -3,6 +3,7 @@ import type { ApiResponse } from '@job-program/shared';
 export interface ImportSummary {
   created: number;
   updated: number;
+  protected?: number;
   errors: Array<{ row: number; message: string }>;
 }
 

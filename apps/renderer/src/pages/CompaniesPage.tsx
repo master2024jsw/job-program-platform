@@ -17,6 +17,7 @@ const emptyForm: CompanyInput = {
   industryType: '',
   address: '',
   status: CompanyStatus.ACTIVE,
+  recruitStatus: RecruitStatus.PROSPECT,
   memo: '',
 };
 
@@ -101,6 +102,7 @@ export function CompaniesPage() {
       industryType: company.industryType ?? '',
       address: company.address ?? '',
       status: company.status,
+      recruitStatus: company.recruitStatus ?? RecruitStatus.PROSPECT,
       memo: company.memo ?? '',
     });
     const cb = company.companyBusiness;

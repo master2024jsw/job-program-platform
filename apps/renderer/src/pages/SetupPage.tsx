@@ -21,13 +21,13 @@ export function SetupPage() {
 
   const validateStep = (): string | null => {
     if (step === 0) {
-      if (!institutionName.trim()) return '기관명을 입력하세요.';
+      if (institutionName.trim().length < 2) return '기관명은 2자 이상이어야 합니다.';
     }
     if (step === 1) {
       if (adminLoginId.trim().length < 4) return '로그인ID는 4자 이상이어야 합니다.';
       if (adminPassword.length < 8) return '비밀번호는 8자 이상이어야 합니다.';
       if (adminPassword !== adminPasswordConfirm) return '비밀번호가 일치하지 않습니다.';
-      if (!adminName.trim()) return '이름을 입력하세요.';
+      if (adminName.trim().length < 2) return '이름은 2자 이상이어야 합니다.';
     }
     if (step === 2) {
       if (!businessName.trim()) return '사업명을 입력하세요.';
@@ -137,7 +137,7 @@ export function SetupPage() {
               />
             </div>
             <div className="field full" style={{ marginBottom: '0.85rem' }}>
-              <label className="required">이름</label>
+              <label className="required">이름 (2자 이상)</label>
               <input
                 className="text-input"
                 style={{ width: '100%' }}
