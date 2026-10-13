@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CompanyStatus, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, Gender, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
+import { CompanyStatus, RecruitStatus, RECRUIT_STATUS_ORDER, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, Gender, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
 import { maskDeep } from '../../common/masking.util';
 import { ValidationService } from '../validation/validation.service';
@@ -362,6 +362,13 @@ export class DocumentsService {
             this.companyBusinessRepository.create({ companyId: company.id, businessId }),
           );
         }
+      }
+
+      // 기업신청서 접수 → recruitStatus APPLIED 상향 (역행 금지)
+      const current = company.recruitStatus ?? RecruitStatus.PROSPECT;
+      if (RECRUIT_STATUS_ORDER[RecruitStatus.APPLIED] > RECRUIT_STATUS_ORDER[current]) {
+        company.recruitStatus = RecruitStatus.APPLIED;
+        await this.companiesRepository.save(company);
       }
 
       // 문서에 기업 연결

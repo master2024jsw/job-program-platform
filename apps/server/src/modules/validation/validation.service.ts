@@ -9,6 +9,7 @@ import type {
   RequiredDocPresence,
   RuleResult,
 } from '@job-program/shared';
+import { RecruitStatus } from '@job-program/shared';
 import { Document } from '../documents/document.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { BusinessesService } from '../businesses/businesses.service';
@@ -247,6 +248,10 @@ export class ValidationService {
       source: 'HUMAN',
       corrected: true,
     });
+
+    // 검증 승인 → recruitStatus VERIFIED 상향
+    await this.companiesService.upgradeRecruitStatus(companyId, RecruitStatus.VERIFIED);
+
     return result;
   }
 

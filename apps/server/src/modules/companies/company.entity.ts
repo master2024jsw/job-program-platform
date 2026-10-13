@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { CompanyStatus } from '@job-program/shared';
+import { CompanyStatus, RecruitStatus } from '@job-program/shared';
 import { Worker } from '../workers/worker.entity';
 import { CompanyBusiness } from './company-business.entity';
 
@@ -35,6 +35,9 @@ export class Company {
 
   @Column({ type: 'varchar', default: CompanyStatus.ACTIVE })
   status!: CompanyStatus;
+
+  @Column({ name: 'recruit_status', type: 'varchar', default: RecruitStatus.PROSPECT })
+  recruitStatus!: RecruitStatus;
 
   @Column({ type: 'varchar', default: 'manual' })
   source!: 'excel' | 'manual' | 'api';

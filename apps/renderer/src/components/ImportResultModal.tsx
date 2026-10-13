@@ -5,7 +5,13 @@ export function ImportResultModal({ summary, onClose }: { summary: ImportSummary
   return (
     <Modal title="엑셀 업로드 결과" onClose={onClose}>
       <p>
-        신규 등록 <strong>{summary.created}</strong>건 · 수정 <strong>{summary.updated}</strong>건
+        신규 등록 <strong>{summary.created}</strong>건 · 보강 <strong>{summary.updated}</strong>건
+        {(summary.protected ?? 0) > 0 && (
+          <>
+            {' '}
+            · <span title="신청접수/검증완료 단계 기업은 안내 명단으로 수정되지 않습니다">보호(skip) <strong>{summary.protected}</strong>건</span>
+          </>
+        )}
         {summary.errors.length > 0 && (
           <>
             {' '}

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
-import { CompanyStatus, type CompanyRow } from '@job-program/shared';
+import { CompanyStatus, RecruitStatus, RECRUIT_STATUS_ORDER, type CompanyRow } from '@job-program/shared';
 import { buildExcelBuffer, readExcelRows, type ExcelColumn, type ImportSummary } from '../../common/excel.util';
 import { Company } from './company.entity';
 import { CompanyBusiness } from './company-business.entity';
@@ -155,6 +155,7 @@ export class CompaniesService {
         industryType: c.industryType ?? null,
         address: c.address ?? null,
         status: c.status,
+        recruitStatus: c.recruitStatus ?? RecruitStatus.PROSPECT,
         source: c.source,
         memo: c.memo ?? null,
         createdAt: c.createdAt.toISOString(),
@@ -238,7 +239,22 @@ export class CompaniesService {
       cb = this.companyBusinessRepository.create({ companyId, businessId: dto.businessId });
     }
     Object.assign(cb, dto);
+    // 서류 안내 발송 시 PROSPECT → CONTACTED 자동 상향
+    if (dto.documentGuideSent) {
+      await this.upgradeRecruitStatus(companyId, RecruitStatus.CONTACTED);
+    }
     return this.companyBusinessRepository.save(cb);
+  }
+
+  /** recruitStatus를 상향 전환만 허용 (역행 금지). */
+  async upgradeRecruitStatus(companyId: string, target: RecruitStatus): Promise<void> {
+    const company = await this.companiesRepository.findOne({ where: { id: companyId } });
+    if (!company) return;
+    const current = company.recruitStatus ?? RecruitStatus.PROSPECT;
+    if (RECRUIT_STATUS_ORDER[target] > RECRUIT_STATUS_ORDER[current]) {
+      company.recruitStatus = target;
+      await this.companiesRepository.save(company);
+    }
   }
 
   async exportToExcel(businessId?: string): Promise<Buffer> {
@@ -312,7 +328,7 @@ export class CompaniesService {
 
   async importFromExcel(buffer: Buffer, businessId?: string): Promise<ImportSummary> {
     const rows = await readExcelRows(buffer, HEADER_TO_KEY, '기업');
-    const summary: ImportSummary = { created: 0, updated: 0, errors: [] };
+    const summary: ImportSummary = { created: 0, updated: 0, protected: 0, errors: [] };
 
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 2;
@@ -355,11 +371,29 @@ export class CompaniesService {
         };
 
         if (company) {
-          Object.assign(company, payload);
+          // APPLIED/VERIFIED 단계 기업은 안내 명단이 절대 수정 못 함 → skip
+          const status = company.recruitStatus ?? RecruitStatus.PROSPECT;
+          if (
+            status === RecruitStatus.APPLIED ||
+            status === RecruitStatus.VERIFIED
+          ) {
+            summary.protected = (summary.protected ?? 0) + 1;
+            continue;
+          }
+          // PROSPECT/CONTACTED: 비어 있는 칸만 보강, 이미 있는 값은 유지
+          if (!company.name) company.name = payload.name;
+          if (!company.businessRegistrationNumber && payload.businessRegistrationNumber)
+            company.businessRegistrationNumber = payload.businessRegistrationNumber;
+          if (!company.representativeName && payload.representativeName)
+            company.representativeName = payload.representativeName;
+          if (!company.phone && payload.phone) company.phone = payload.phone;
+          if (!company.email && payload.email) company.email = payload.email;
+          if (!company.fax && payload.fax) company.fax = payload.fax;
+          if (!company.memo && payload.memo) company.memo = payload.memo;
           await this.companiesRepository.save(company);
           summary.updated++;
         } else {
-          company = this.companiesRepository.create({ ...payload, source: 'excel' });
+          company = this.companiesRepository.create({ ...payload, source: 'excel', recruitStatus: RecruitStatus.PROSPECT });
           await this.companiesRepository.save(company);
           summary.created++;
         }

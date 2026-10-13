@@ -321,6 +321,11 @@ table.data-table {
   color: #d97706;
 }
 
+.badge-pending {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
 .badge-info {
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary);

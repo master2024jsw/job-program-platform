@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CompanyStatus, type CompanyRow } from '@job-program/shared';
+import { CompanyStatus, RecruitStatus, RECRUIT_STATUS_LABEL, type CompanyRow } from '@job-program/shared';
 import { companiesApi, type CompanyInput, type DedupeGroup, type ContactNormalizePreviewRow, type UpsertCompanyBusinessInput } from '../api/companies';
 import type { ImportSummary } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -40,6 +40,7 @@ export function CompaniesPage() {
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
   const [contactableOnly, setContactableOnly] = useState(false);
+  const [recruitFilter, setRecruitFilter] = useState<'all' | 'prospect' | 'applied'>('all');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CompanyRow | null>(null);
@@ -186,7 +187,17 @@ export function CompaniesPage() {
     }
   };
 
-  const rows = useMemo(() => companies, [companies]);
+  const rows = useMemo(() => {
+    if (recruitFilter === 'prospect')
+      return companies.filter((c) =>
+        c.recruitStatus === RecruitStatus.PROSPECT || c.recruitStatus === RecruitStatus.CONTACTED,
+      );
+    if (recruitFilter === 'applied')
+      return companies.filter((c) =>
+        c.recruitStatus === RecruitStatus.APPLIED || c.recruitStatus === RecruitStatus.VERIFIED,
+      );
+    return companies;
+  }, [companies, recruitFilter]);
 
   const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -276,6 +287,17 @@ export function CompaniesPage() {
             <input type="checkbox" checked={contactableOnly} onChange={(e) => setContactableOnly(e.target.checked)} />
             연락불가 기업만
           </label>
+          <span style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
+            {(['all', 'prospect', 'applied'] as const).map((f) => (
+              <button
+                key={f}
+                className={`btn btn-sm${recruitFilter === f ? ' btn-primary' : ''}`}
+                onClick={() => setRecruitFilter(f)}
+              >
+                {f === 'all' ? '전체' : f === 'prospect' ? '모집·안내' : '신청·완료'}
+              </button>
+            ))}
+          </span>
         </div>
         <div className="toolbar-left">
           <button
@@ -323,6 +345,7 @@ export function CompaniesPage() {
               <th>연락처</th>
               <th>이메일</th>
               <th>연락가능</th>
+              <th>모집단계</th>
               <th>사업 진행상태</th>
               <th>상태</th>
               <th>작업</th>
@@ -331,12 +354,12 @@ export function CompaniesPage() {
           <tbody>
             {loading && (
               <tr className="empty-row">
-                <td colSpan={9}>불러오는 중...</td>
+                <td colSpan={10}>불러오는 중...</td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={9}>등록된 기업이 없습니다.</td>
+                <td colSpan={10}>등록된 기업이 없습니다.</td>
               </tr>
             )}
             {!loading &&
@@ -350,6 +373,16 @@ export function CompaniesPage() {
                   <td>
                     <span className={`badge ${c.contactable ? 'badge-active' : 'badge-failed'}`}>
                       {c.contactable ? '연락가능' : '연락불가'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${
+                      c.recruitStatus === RecruitStatus.VERIFIED ? 'badge-active' :
+                      c.recruitStatus === RecruitStatus.APPLIED ? 'badge-active' :
+                      c.recruitStatus === RecruitStatus.CONTACTED ? 'badge-pending' :
+                      'badge-inactive'
+                    }`}>
+                      {RECRUIT_STATUS_LABEL[c.recruitStatus ?? RecruitStatus.PROSPECT]}
                     </span>
                   </td>
                   <td>

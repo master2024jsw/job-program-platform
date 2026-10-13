@@ -80,5 +80,7 @@ export interface ImportRowError {
 export interface ImportSummary {
   created: number;
   updated: number;
+  /** 안내 업로드 시 APPLIED/VERIFIED 상태여서 건드리지 않은 기업 수 */
+  protected?: number;
   errors: ImportRowError[];
 }
