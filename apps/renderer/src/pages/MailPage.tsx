@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MailLogStatus, type Company, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
+import { MailLogStatus, RecruitStatus, type CompanyRow, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
 import { mailApi, mailTemplatesApi, type CollectSummary, type MailTemplateInput } from '../api/mail';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
@@ -18,7 +18,7 @@ const emptyTemplateForm: MailTemplateInput = { name: '', subject: '', body: '' }
 export function MailPage() {
   const { currentBusinessId } = useAuth();
   const [subTab, setSubTab] = useState<SubTab>('collect');
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [templates, setTemplates] = useState<MailTemplate[]>([]);
   const [logs, setLogs] = useState<MailLog[]>([]);
@@ -170,16 +170,27 @@ function SendMailPanel({
   templates,
   businessId,
 }: {
-  companies: Company[];
+  companies: CompanyRow[];
   workers: Worker[];
   templates: MailTemplate[];
   businessId: string | null;
 }) {
   const [mode, setMode] = useState<'manual' | 'company' | 'worker'>('company');
+  const [recruitOnly, setRecruitOnly] = useState(false);
   const [manualEmails, setManualEmails] = useState('');
   const [companyId, setCompanyId] = useState('');
   const [workerId, setWorkerId] = useState('');
   const [templateId, setTemplateId] = useState('');
+
+  const visibleCompanies = useMemo(
+    () =>
+      recruitOnly
+        ? companies.filter(
+            (c) => c.recruitStatus === RecruitStatus.PROSPECT || c.recruitStatus === RecruitStatus.CONTACTED,
+          )
+        : companies,
+    [companies, recruitOnly],
+  );
   const [customSubject, setCustomSubject] = useState('');
   const [customBody, setCustomBody] = useState('');
   const [variables, setVariables] = useState<Record<string, string>>({});
@@ -246,10 +257,16 @@ function SendMailPanel({
 
         {mode === 'company' && (
           <div className="field full" style={{ marginBottom: '1rem' }}>
-            <label>기업 선택 (담당자 이메일로 발송)</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+              <label>기업 선택 (담당자 이메일로 발송)</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', fontWeight: 400, cursor: 'pointer' }}>
+                <input type="checkbox" checked={recruitOnly} onChange={(e) => { setRecruitOnly(e.target.checked); setCompanyId(''); }} />
+                모집안내 기업만
+              </label>
+            </div>
             <select className="select-input" value={companyId} onChange={(e) => setCompanyId(e.target.value)} required>
-              <option value="">선택하세요</option>
-              {companies.map((c) => (
+              <option value="">선택하세요 ({visibleCompanies.length}개)</option>
+              {visibleCompanies.map((c) => (
                 <option key={c.id} value={c.id} disabled={!c.email}>
                   {c.name}
                   {c.email ? '' : ' (이메일 없음)'}

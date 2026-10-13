@@ -327,7 +327,12 @@ export class CompaniesService {
   }
 
   async importFromExcel(buffer: Buffer, businessId?: string): Promise<ImportSummary> {
-    const rows = await readExcelRows(buffer, HEADER_TO_KEY, '기업');
+    let rows: Awaited<ReturnType<typeof readExcelRows>>;
+    try {
+      rows = await readExcelRows(buffer, HEADER_TO_KEY, '기업');
+    } catch (e) {
+      throw new BadRequestException(e instanceof Error ? e.message : '엑셀 파일을 파싱할 수 없습니다.');
+    }
     const summary: ImportSummary = { created: 0, updated: 0, protected: 0, errors: [] };
 
     for (let i = 0; i < rows.length; i++) {

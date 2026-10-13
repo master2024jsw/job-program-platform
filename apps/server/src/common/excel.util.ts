@@ -43,10 +43,15 @@ export async function readExcelRows(
   sheetSelector?: string | number,
 ): Promise<Array<Record<string, string>>> {
   const workbook = new Workbook();
-  await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  try {
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  } catch (e) {
+    throw new Error(`엑셀 파일을 열 수 없습니다. 파일이 손상됐거나 형식이 올바르지 않습니다. Excel에서 다시 저장(파일→다른 이름으로 저장→.xlsx) 후 업로드해 주세요. (${e instanceof Error ? e.message : String(e)})`);
+  }
+  // 지정된 시트 이름을 못 찾으면 첫 번째 시트로 폴백
   const sheet =
     typeof sheetSelector === 'string'
-      ? workbook.getWorksheet(sheetSelector)
+      ? (workbook.getWorksheet(sheetSelector) ?? workbook.worksheets[0])
       : workbook.worksheets[sheetSelector ?? 0];
   if (!sheet) return [];
 
