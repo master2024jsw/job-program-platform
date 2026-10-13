@@ -19,6 +19,7 @@ interface AuthContextValue {
   login: (dto: LoginInput) => Promise<void>;
   setup: (dto: SetupInput) => Promise<void>;
   logout: () => Promise<void>;
+  recheck: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,28 +47,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const setupStatus = await authApi.setupStatus();
-        if (setupStatus.needsSetup) {
-          setStatus('needs-setup');
-          return;
-        }
-        const me = await authApi.me();
-        setUser(me);
-        await refreshBusinesses();
-        setStatus('authenticated');
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 401) {
-          setStatus('unauthenticated');
-        } else {
-          // 서버 연결 실패 등 — 로그인 화면에서 재시도할 수 있도록 미인증으로 취급
-          setStatus('unauthenticated');
-        }
+  const recheck = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const setupStatus = await authApi.setupStatus();
+      if (setupStatus.needsSetup) {
+        setStatus('needs-setup');
+        return;
       }
-    })();
+      const me = await authApi.me();
+      setUser(me);
+      await refreshBusinesses();
+      setStatus('authenticated');
+    } catch {
+      setUser(null);
+      setBusinesses([]);
+      setCurrentBusinessIdState(null);
+      sessionStorage.removeItem(CURRENT_BUSINESS_KEY);
+      setStatus('unauthenticated');
+    }
+  }, [refreshBusinesses]);
+
+  useEffect(() => {
+    recheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      setUser(null);
+      setBusinesses([]);
+      setCurrentBusinessIdState(null);
+      sessionStorage.removeItem(CURRENT_BUSINESS_KEY);
+      setStatus('unauthenticated');
+    };
+    window.addEventListener('session:expired', handler);
+    return () => window.removeEventListener('session:expired', handler);
   }, []);
 
   const login = useCallback(
@@ -92,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await authApi.logout();
+    try { await authApi.logout(); } catch { /* 서버 다운 중에도 로컬 상태는 항상 초기화 */ }
     setUser(null);
     setBusinesses([]);
     setCurrentBusinessIdState(null);
@@ -116,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     setup,
     logout,
+    recheck,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

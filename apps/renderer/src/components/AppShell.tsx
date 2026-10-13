@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 
 interface NavItem {
@@ -18,8 +19,28 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/complaints', label: '민원응대' },
 ];
 
+const electronApi = (window as unknown as { api?: { restartServer?: () => Promise<{ success: boolean }>; onServerStatus?: (cb: (s: string) => void) => () => void } }).api;
+
 export function AppShell() {
-  const { user, businesses, currentBusinessId, setCurrentBusinessId, logout } = useAuth();
+  const { user, businesses, currentBusinessId, setCurrentBusinessId, logout, recheck } = useAuth();
+  const [serverStatus, setServerStatus] = useState<'idle' | 'restarting' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    const unsub = electronApi?.onServerStatus?.((s) => {
+      setServerStatus(s as 'restarting' | 'ready' | 'error');
+      if (s === 'ready') {
+        recheck();
+        setTimeout(() => setServerStatus('idle'), 2000);
+      }
+    });
+    return () => unsub?.();
+  }, [recheck]);
+
+  const handleRestart = async () => {
+    if (!electronApi?.restartServer) return;
+    setServerStatus('restarting');
+    await electronApi.restartServer();
+  };
 
   return (
     <div className="shell">
@@ -65,6 +86,16 @@ export function AppShell() {
             <span className="hint-text">
               {user?.institutionName} · {user?.name} ({user?.role === 'ADMIN' ? '관리자' : '담당자'})
             </span>
+            {electronApi?.restartServer && (
+              <button
+                className="btn btn-sm"
+                onClick={handleRestart}
+                disabled={serverStatus === 'restarting'}
+                title="서버를 재시작합니다"
+              >
+                {serverStatus === 'restarting' ? '재시작 중...' : serverStatus === 'ready' ? '✓ 완료' : serverStatus === 'error' ? '⚠ 오류' : '서버 재시작'}
+              </button>
+            )}
             <button className="btn btn-sm" onClick={() => logout()}>
               로그아웃
             </button>

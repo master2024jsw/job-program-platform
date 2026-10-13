@@ -8,10 +8,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n SERVER,RENDERER,DESKTOP -c blue,green,magenta \"npm:dev:server\" \"npm:dev:renderer\" \"npm:dev:desktop\"",
+    "dev": "concurrently -k -n RENDERER,DESKTOP -c green,magenta \"npm:dev:renderer\" \"npm:dev:desktop\"",
     "dev:server": "npm run start:dev -w apps/server",
     "dev:renderer": "npm run dev -w apps/renderer",
-    "dev:desktop": "wait-on tcp:3000 http://localhost:5173 && npm run dev -w apps/desktop",
+    "dev:desktop": "wait-on http://localhost:5173 && npm run dev -w apps/desktop",
     "build": "npm run build -w packages/shared && npm run build -w apps/server && npm run build -w apps/renderer && npm run build -w apps/desktop",
     "build:server": "npm run build -w apps/server",
     "build:renderer": "npm run build -w apps/renderer",

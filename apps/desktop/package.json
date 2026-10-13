@@ -17,16 +17,45 @@
   },
   "build": {
     "appId": "kr.jobprogram.platform",
-    "productName": "일자리사업 행정자동화 플랫폼",
+    "productName": "잡도리AI",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
-      "../renderer/dist/**/*"
+      "!dist/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "../renderer/dist",
+        "to": "renderer/dist"
+      },
+      {
+        "from": "../server/dist",
+        "to": "server/dist"
+      },
+      {
+        "from": "../server/node_modules",
+        "to": "server/node_modules"
+      },
+      {
+        "from": "../server/resources",
+        "to": "server/resources",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
-      "target": "nsis"
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "installerLanguages": ["ko_KR"],
+      "language": "1042"
     }
   }
 }

@@ -111,8 +111,11 @@ export class DocumentsController {
   }
 
   @Post(':id/analyze-combined')
-  async analyzeCombined(@Param('id') id: string): Promise<ApiResponse<Document>> {
-    const document = await this.documentsService.analyzeAsCombined(id);
+  async analyzeCombined(
+    @Param('id') id: string,
+    @Body() body: { companyId?: string; businessId?: string },
+  ): Promise<ApiResponse<Document>> {
+    const document = await this.documentsService.analyzeAsCombined(id, body.companyId, body.businessId);
     return { success: true, data: document };
   }
 

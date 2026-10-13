@@ -244,8 +244,15 @@ export class DocumentsService {
    * 합본 PDF를 Gemini로 분석해 포함된 서류별 자식 Document를 생성한다.
    * 원본 Document는 combined=true 메타데이터와 함께 ANALYZED 상태로 마킹된다.
    */
-  async analyzeAsCombined(id: string): Promise<Document> {
+  async analyzeAsCombined(id: string, companyId?: string, businessId?: string): Promise<Document> {
     const document = await this.findOne(id);
+    if (companyId) document.companyId = companyId;
+    if (businessId) document.businessId = businessId;
+    // businessId가 여전히 null이면 사업이 1개뿐인 경우 자동 지정
+    if (!document.businessId) {
+      const businesses = await this.businessesRepository.find();
+      if (businesses.length === 1) document.businessId = businesses[0].id;
+    }
     document.status = DocumentAnalysisStatus.ANALYZING;
     document.errorMessage = null;
     await this.documentsRepository.save(document);
@@ -399,19 +406,37 @@ export class DocumentsService {
   private async autoRegisterCompanyIfNew(document: Document): Promise<void> {
     if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
     if (document.documentType !== 'COMPANY_APPLICATION') return;
-    if (document.companyId) return; // 이미 기업 연결됨
+    if (document.companyId && document.businessId) return; // 이미 기업·사업 모두 연결됨
 
     const data = document.extractedData as Record<string, unknown> | null;
-    if (!data) return;
-
-    const rawBrn = data.businessRegistrationNumber;
-    const rawName = data.companyName;
-    if (typeof rawName !== 'string' || !rawName.trim()) return;
-
-    const brn = typeof rawBrn === 'string' ? rawBrn.trim() : null;
-    const name = rawName.trim();
 
     try {
+      const businesses = await this.businessesRepository.find();
+
+      // companyId는 있지만 businessId가 없는 경우: businessId만 채운다
+      if (document.companyId && !document.businessId) {
+        if (businesses.length === 1) {
+          document.businessId = businesses[0].id;
+          await this.documentsRepository.save(document);
+        } else {
+          // 해당 기업에 연결된 CompanyBusiness에서 businessId 찾기
+          const cb = await this.companyBusinessRepository.findOne({ where: { companyId: document.companyId } });
+          if (cb) {
+            document.businessId = cb.businessId;
+            await this.documentsRepository.save(document);
+          }
+        }
+        return;
+      }
+
+      if (!data) return;
+      const rawBrn = data.businessRegistrationNumber;
+      const rawName = data.companyName;
+      if (typeof rawName !== 'string' || !rawName.trim()) return;
+
+      const brn = typeof rawBrn === 'string' ? rawBrn.trim() : null;
+      const name = rawName.trim();
+
       // 사업자번호로 기존 기업 찾기, 없으면 기업명으로 재시도
       let company = brn
         ? await this.companiesRepository.findOne({ where: { businessRegistrationNumber: brn } })
@@ -436,7 +461,6 @@ export class DocumentsService {
       }
 
       // 기관에 사업이 1개뿐이면 CompanyBusiness 자동 생성
-      const businesses = await this.businessesRepository.find();
       if (businesses.length === 1) {
         const businessId = businesses[0].id;
         const existing = await this.companyBusinessRepository.findOne({

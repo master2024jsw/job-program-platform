@@ -54,6 +54,9 @@ export function DocumentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [analyzingSelected, setAnalyzingSelected] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState<DocumentTypeCode | ''>('');
+  const [uploadCompanyId, setUploadCompanyId] = useState<string>('');
+  const [combinedTarget, setCombinedTarget] = useState<Document | null>(null);
+  const [combinedCompanyId, setCombinedCompanyId] = useState<string>('');
   const [reviewing, setReviewing] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('current');
   const [checklistCompanyId, setChecklistCompanyId] = useState('');
@@ -173,8 +176,13 @@ export function DocumentsPage() {
     }
     setUploading(true);
     try {
-      await documentsApi.upload(file, { businessId: currentBusinessId, documentType: uploadDocumentType || undefined });
+      await documentsApi.upload(file, {
+        businessId: currentBusinessId,
+        documentType: uploadDocumentType || undefined,
+        companyId: uploadCompanyId || undefined,
+      });
       setUploadDocumentType('');
+      setUploadCompanyId('');
       await load();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : '업로드에 실패했습니다.');
@@ -195,12 +203,13 @@ export function DocumentsPage() {
     }
   };
 
-  const handleAnalyzeCombined = async (doc: Document) => {
+  const handleAnalyzeCombined = async (doc: Document, companyId?: string) => {
+    setCombinedTarget(null);
+    setCombinedCompanyId('');
     setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, status: DocumentAnalysisStatus.ANALYZING } : d)));
     try {
-      const updated = await documentsApi.analyzeCombined(doc.id);
+      const updated = await documentsApi.analyzeCombined(doc.id, companyId || undefined, currentBusinessId || undefined);
       setDocuments((prev) => prev.map((d) => (d.id === doc.id ? updated : d)));
-      // 합본 분석 후 목록 새로고침 (자식 Document들이 새로 생성됨)
       await load();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '합본 분석에 실패했습니다.');
@@ -391,18 +400,32 @@ export function DocumentsPage() {
                 {collecting ? '수집 중...' : '첨부파일 수집'}
               </button>
               {viewMode === 'current' && (
-                <select
-                  className="select-input"
-                  value={uploadDocumentType}
-                  onChange={(e) => setUploadDocumentType(e.target.value as DocumentTypeCode | '')}
-                >
-                  <option value="">문서종류: AI 자동 분류</option>
-                  {documentTypes.map((t) => (
-                    <option key={t.code} value={t.code}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    className="select-input"
+                    value={uploadCompanyId}
+                    onChange={(e) => setUploadCompanyId(e.target.value)}
+                  >
+                    <option value="">기업 미지정 (AI 자동 연결)</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="select-input"
+                    value={uploadDocumentType}
+                    onChange={(e) => setUploadDocumentType(e.target.value as DocumentTypeCode | '')}
+                  >
+                    <option value="">문서종류: AI 자동 분류</option>
+                    {documentTypes.map((t) => (
+                      <option key={t.code} value={t.code}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
               <button
                 className="btn btn-primary"
@@ -499,7 +522,7 @@ export function DocumentsPage() {
                           분석
                         </button>
                         {(doc.mimeType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')) && (
-                          <button className="btn btn-sm btn-primary" onClick={() => handleAnalyzeCombined(doc)}>
+                          <button className="btn btn-sm btn-primary" onClick={() => { setCombinedTarget(doc); setCombinedCompanyId(doc.companyId ?? ''); }}>
                             합본 분석
                           </button>
                         )}
@@ -510,7 +533,7 @@ export function DocumentsPage() {
                           검토
                         </button>
                         {(doc.mimeType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')) && (
-                          <button className="btn btn-sm btn-primary" onClick={() => handleAnalyzeCombined(doc)}>
+                          <button className="btn btn-sm btn-primary" onClick={() => { setCombinedTarget(doc); setCombinedCompanyId(doc.companyId ?? ''); }}>
                             합본 재분석
                           </button>
                         )}
@@ -528,6 +551,37 @@ export function DocumentsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {combinedTarget && (
+        <Modal onClose={() => { setCombinedTarget(null); setCombinedCompanyId(''); }}>
+          <h3 style={{ marginTop: 0 }}>합본 분석 — 기업 선택</h3>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+            이 PDF가 어느 기업의 서류인지 선택하면 분리된 문서가 해당 기업에 자동 연결됩니다.
+          </p>
+          <select
+            className="select-input"
+            style={{ width: '100%', marginBottom: '1rem' }}
+            value={combinedCompanyId}
+            onChange={(e) => setCombinedCompanyId(e.target.value)}
+          >
+            <option value="">기업 미지정 (AI 자동 연결 시도)</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => { setCombinedTarget(null); setCombinedCompanyId(''); }}>
+              취소
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => handleAnalyzeCombined(combinedTarget, combinedCompanyId)}
+            >
+              분석 시작
+            </button>
+          </div>
+        </Modal>
       )}
 
       {reviewing && (

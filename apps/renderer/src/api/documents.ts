@@ -31,7 +31,8 @@ export const documentsApi = {
     return api.postForm<Document>('/documents', form);
   },
   analyze: (id: string) => api.post<Document>(`/documents/${id}/analyze`, {}),
-  analyzeCombined: (id: string) => api.post<Document>(`/documents/${id}/analyze-combined`, {}),
+  analyzeCombined: (id: string, companyId?: string, businessId?: string) =>
+    api.post<Document>(`/documents/${id}/analyze-combined`, { companyId, businessId }),
   update: (
     id: string,
     dto: {

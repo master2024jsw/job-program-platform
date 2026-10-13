@@ -31,6 +31,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (!res.ok || !json?.success) {
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('session:expired'));
+    }
     throw new ApiError(json?.message ?? `요청에 실패했습니다. (${res.status})`, res.status);
   }
 
