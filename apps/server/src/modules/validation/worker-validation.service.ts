@@ -47,11 +47,11 @@ function parseResidentNumber(rrn: string): { birthDate: string | null; gender: s
   return { birthDate, gender };
 }
 
-/** 주민번호 표시용 마스킹: YYMMDD-G###### */
+/** 주민번호 표시용 마스킹: YYMMDD-G****** */
 function maskRrnForDisplay(rrn: string): string {
   const digits = rrn.replace(/\D/g, '');
   if (digits.length < 7) return rrn;
-  return `${digits.slice(0, 6)}-${digits[6]}######`;
+  return `${digits.slice(0, 6)}-${digits[6]}******`;
 }
 
 /**

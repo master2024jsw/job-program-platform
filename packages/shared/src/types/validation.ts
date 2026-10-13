@@ -112,7 +112,7 @@ export interface WorkerLedgerFields {
   participationType: string | null;
   /** 성명 (초본 우선, 없으면 신청서) */
   name: string | null;
-  /** 주민번호 표시용 마스킹값 (예: 911128-1######) — 미저장 */
+  /** 주민번호 표시용 마스킹값 (예: 911128-1******) — 미저장 */
   residentNumberMasked: string | null;
   /** 생년월일 (주민번호 앞 6자리 파생, YYYY-MM-DD) */
   birthDate: string | null;

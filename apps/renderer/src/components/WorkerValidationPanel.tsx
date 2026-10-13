@@ -213,7 +213,7 @@ export function WorkerValidationPanel({
               readOnly
               value={form.residentNumberMasked ?? ''}
               style={{ background: 'var(--surface, #f6f7f9)', cursor: 'default' }}
-              title="주민번호 뒤 7자리는 저장하지 않습니다"
+              title="주민번호 뒤 6자리는 저장하지 않습니다"
             />
           </div>
           <div className="field">

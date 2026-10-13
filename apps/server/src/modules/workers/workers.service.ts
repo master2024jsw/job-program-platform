@@ -94,12 +94,12 @@ function buildSubsidyLedgerColumns(): ExcelColumn[] {
   return cols;
 }
 
-/** 주민번호 표시용 마스킹: birthDate(YYYY-MM-DD) + gender → YYMMDD-G###### */
+/** 주민번호 표시용 마스킹: birthDate(YYYY-MM-DD) + gender → YYMMDD-G****** */
 function maskRrnForLedger(worker: Worker): string {
   if (!worker.birthDate) return '';
   const ymd = worker.birthDate.replace(/-/g, '').slice(2); // YYMMDD
   const gDigit = worker.gender === Gender.MALE ? '1' : worker.gender === Gender.FEMALE ? '2' : '';
-  return `${ymd}-${gDigit}######`;
+  return `${ymd}-${gDigit}******`;
 }
 
 @Injectable()

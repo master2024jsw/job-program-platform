@@ -11,9 +11,9 @@
  */
 const RRN_PATTERN = /(\d{6})[-\s]?([1-4]\d{6})/g;
 
-/** 문자열 안의 주민번호를 `######-*******` 로 마스킹한다. */
+/** 문자열 안의 주민번호를 `######-G******` 로 마스킹한다 (성별 자리 1자리 노출, 뒤 6자리 비공개). */
 export function maskResidentNumbers(text: string): string {
-  return text.replace(RRN_PATTERN, (_m, front: string) => `${front}-*******`);
+  return text.replace(RRN_PATTERN, (_m, front: string, back: string) => `${front}-${back[0]}******`);
 }
 
 /**
