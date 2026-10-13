@@ -110,6 +110,12 @@ export class DocumentsController {
     return { success: true, data: document };
   }
 
+  @Post(':id/analyze-combined')
+  async analyzeCombined(@Param('id') id: string): Promise<ApiResponse<Document>> {
+    const document = await this.documentsService.analyzeAsCombined(id);
+    return { success: true, data: document };
+  }
+
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateDocumentDto): Promise<ApiResponse<Document>> {
     const document = await this.documentsService.update(id, dto);

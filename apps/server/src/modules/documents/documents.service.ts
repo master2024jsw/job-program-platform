@@ -241,6 +241,91 @@ export class DocumentsService {
   }
 
   /**
+   * 합본 PDF를 Gemini로 분석해 포함된 서류별 자식 Document를 생성한다.
+   * 원본 Document는 combined=true 메타데이터와 함께 ANALYZED 상태로 마킹된다.
+   */
+  async analyzeAsCombined(id: string): Promise<Document> {
+    const document = await this.findOne(id);
+    document.status = DocumentAnalysisStatus.ANALYZING;
+    document.errorMessage = null;
+    await this.documentsRepository.save(document);
+
+    try {
+      const pdfPath = await this.ensurePdf(document);
+      const items = await this.geminiService.extractAllFromPdf(pdfPath);
+
+      const childIds: string[] = [];
+      for (const item of items) {
+        if (item.documentType === 'OTHER' && Object.keys(item.extractedData).length === 0) continue;
+
+        const validType = (DOCUMENT_TYPE_CODES as readonly string[]).includes(item.documentType)
+          ? item.documentType
+          : undefined;
+
+        const masked = maskDeep({ ...item.extractedData, missingItems: item.missingItems });
+
+        const child = this.documentsRepository.create({
+          businessId: document.businessId,
+          companyId: document.companyId,
+          workerId: document.workerId,
+          fileName: document.fileName,
+          filePath: document.filePath,
+          convertedFilePath: document.convertedFilePath,
+          markdownPath: document.markdownPath,
+          mimeType: document.mimeType,
+          fileSize: document.fileSize,
+          source: document.source,
+          senderEmail: document.senderEmail,
+          documentType: validType,
+          extractedData: masked,
+          status: DocumentAnalysisStatus.ANALYZED,
+          analyzedAt: new Date(),
+        });
+        let saved = await this.documentsRepository.save(child);
+        childIds.push(saved.id);
+
+        await this.autoRegisterCompanyIfNew(saved);
+        await this.runCompanyValidationIfApplicable(saved);
+        await this.groupWorkerDocuments(saved);
+        await this.runWorkerValidationIfApplicable(saved);
+
+        // companyId가 훅에서 채워졌을 수 있으므로 최신 상태 재조회
+        const fresh = await this.documentsRepository.findOne({ where: { id: saved.id } });
+        if (fresh) saved = fresh;
+        try {
+          await this.fileRouterService.relocate(saved);
+        } catch {
+          // 이동 실패는 무시
+        }
+      }
+
+      // 형제 문서 간 companyId 전파 (기업신청서로 기업 확정된 경우)
+      if (childIds.length > 1) {
+        const childDocs = await Promise.all(childIds.map((cid) => this.documentsRepository.findOne({ where: { id: cid } })));
+        const anchor = childDocs.find((d) => d?.companyId);
+        if (anchor?.companyId) {
+          for (const sibling of childDocs) {
+            if (sibling && !sibling.companyId) {
+              sibling.companyId = anchor.companyId;
+              sibling.businessId = sibling.businessId ?? anchor.businessId;
+              await this.documentsRepository.save(sibling);
+            }
+          }
+        }
+      }
+
+      document.extractedData = { combined: true, childDocumentIds: childIds, detectedCount: items.length };
+      document.status = DocumentAnalysisStatus.ANALYZED;
+      document.analyzedAt = new Date();
+    } catch (error) {
+      document.status = DocumentAnalysisStatus.FAILED;
+      document.errorMessage = error instanceof Error ? error.message : String(error);
+    }
+
+    return this.documentsRepository.save(document);
+  }
+
+  /**
    * ZIP 파일을 추출해 내부 파일별 Document를 생성하고 각각 analyze()를 실행한다.
    * ZIP 원본 Document의 extractedData에 자식 Document ID 목록을 기록한다.
    */

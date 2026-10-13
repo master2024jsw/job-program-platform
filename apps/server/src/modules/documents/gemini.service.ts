@@ -166,6 +166,81 @@ export class GeminiService {
     }
   }
 
+  /**
+   * 합본 PDF에서 포함된 모든 서류 유형을 한 번에 추출한다.
+   * 반환값: [{ documentType, extractedData, missingItems }]
+   */
+  async extractAllFromPdf(filePath: string): Promise<Array<{ documentType: string; extractedData: Record<string, unknown>; missingItems: string[] }>> {
+    const client = this.getClient();
+    const model = this.configService.get<string>('GEMINI_MODEL') ?? DEFAULT_MODEL;
+    const fileBuffer = await fs.readFile(filePath);
+
+    const codeList = this.requiredDocumentsService
+      .getDocumentTypes()
+      .map((t) => `${t.code}(${t.label})`)
+      .join(', ');
+
+    const schemaHints = [
+      `- 참여기업 신청서(COMPANY_APPLICATION): ${SCHEMA_BY_TYPE.COMPANY_APPLICATION}`,
+      `- 운영계획서(OPERATION_PLAN): ${SCHEMA_BY_TYPE.OPERATION_PLAN}`,
+      `- 4대보험 사업장 가입내역(WORKPLACE_INSURANCE): ${SCHEMA_BY_TYPE.WORKPLACE_INSURANCE}`,
+      `- 사업자등록증(BUSINESS_REGISTRATION): ${SCHEMA_BY_TYPE.BUSINESS_REGISTRATION}`,
+      `- 지원금 지급신청서(SUBSIDY_APPLICATION): ${SCHEMA_BY_TYPE.SUBSIDY_APPLICATION}`,
+      `- 지원금 산출내역(SUBSIDY_CALCULATION): ${SCHEMA_BY_TYPE.SUBSIDY_CALCULATION}`,
+      `- 4대보험 가입자명부(INSURANCE_ROSTER): ${SCHEMA_BY_TYPE.INSURANCE_ROSTER}`,
+      `- 급여명세서(PAYROLL): ${SCHEMA_BY_TYPE.PAYROLL}`,
+      `- 급여 이체확인증(SALARY_TRANSFER): ${SCHEMA_BY_TYPE.SALARY_TRANSFER}`,
+      `- 통장사본(BANK_ACCOUNT_COPY): ${SCHEMA_BY_TYPE.BANK_ACCOUNT_COPY}`,
+    ].join('\n');
+
+    const promptText = [
+      '이 PDF에는 여러 서류가 합쳐져 있을 수 있다.',
+      '포함된 서류를 모두 찾아서 JSON 배열로 응답하라. 배열 원소는 각 서류 1건이며 다음 형태를 가진다:',
+      '{ "documentType": "<코드>", "extractedData": { ... }, "missingItems": [ ... ] }',
+      `사용 가능한 documentType 코드 목록: ${codeList}. 해당 없으면 "OTHER".`,
+      '각 서류별 표준 key:',
+      schemaHints,
+      '각 서류마다 서명·날인·필수 기재 항목 누락 여부를 검토해서 missingItems 배열에 한글 문장으로 담아라. 없으면 빈 배열.',
+      '값을 확인할 수 없는 항목은 extractedData에 넣지 마라.',
+      '반드시 JSON 배열 하나만 응답하라.',
+    ].join(' ');
+
+    const response = await client.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: 'application/pdf', data: fileBuffer.toString('base64') } },
+            { text: promptText },
+          ],
+        },
+      ],
+      config: { responseMimeType: 'application/json' },
+    });
+
+    const text = response.text;
+    if (!text) throw new BadRequestException('Gemini 응답에서 텍스트를 받지 못했습니다.');
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      this.logger.error(`합본 Gemini 응답 파싱 실패: ${text}`);
+      throw new BadRequestException('Gemini 응답을 JSON으로 해석하지 못했습니다.');
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new BadRequestException(`Gemini가 배열 대신 다른 형식으로 응답했습니다: ${JSON.stringify(parsed).slice(0, 200)}`);
+    }
+
+    return (parsed as Array<Record<string, unknown>>).map((item) => ({
+      documentType: typeof item.documentType === 'string' ? item.documentType : 'OTHER',
+      extractedData: (item.extractedData && typeof item.extractedData === 'object' ? item.extractedData : {}) as Record<string, unknown>,
+      missingItems: Array.isArray(item.missingItems) ? item.missingItems.map(String) : [],
+    }));
+  }
+
   /** @param assignedType 업로드 시 지정된 문서종류(있으면 그 서류로 스코프). */
   async extractFromPdf(
     filePath: string,

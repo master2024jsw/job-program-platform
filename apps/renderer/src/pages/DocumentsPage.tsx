@@ -195,6 +195,19 @@ export function DocumentsPage() {
     }
   };
 
+  const handleAnalyzeCombined = async (doc: Document) => {
+    setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, status: DocumentAnalysisStatus.ANALYZING } : d)));
+    try {
+      const updated = await documentsApi.analyzeCombined(doc.id);
+      setDocuments((prev) => prev.map((d) => (d.id === doc.id ? updated : d)));
+      // 합본 분석 후 목록 새로고침 (자식 Document들이 새로 생성됨)
+      await load();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '합본 분석에 실패했습니다.');
+      await load();
+    }
+  };
+
   const handleDelete = async (doc: Document) => {
     if (!window.confirm(`'${doc.fileName}' 문서를 삭제하시겠습니까?`)) return;
     try {
@@ -481,13 +494,27 @@ export function DocumentsPage() {
                       </button>
                     )}
                     {doc.status === DocumentAnalysisStatus.PENDING ? (
-                      <button className="btn btn-sm" onClick={() => handleAnalyze(doc)}>
-                        분석 실행
-                      </button>
+                      <>
+                        <button className="btn btn-sm" onClick={() => handleAnalyze(doc)}>
+                          분석
+                        </button>
+                        {(doc.mimeType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')) && (
+                          <button className="btn btn-sm btn-primary" onClick={() => handleAnalyzeCombined(doc)}>
+                            합본 분석
+                          </button>
+                        )}
+                      </>
                     ) : (
-                      <button className="btn btn-sm" onClick={() => setReviewing(doc)}>
-                        검토
-                      </button>
+                      <>
+                        <button className="btn btn-sm" onClick={() => setReviewing(doc)}>
+                          검토
+                        </button>
+                        {(doc.mimeType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')) && (
+                          <button className="btn btn-sm btn-primary" onClick={() => handleAnalyzeCombined(doc)}>
+                            합본 재분석
+                          </button>
+                        )}
+                      </>
                     )}
                     <button className="btn btn-sm btn-danger" onClick={() => handleDelete(doc)}>
                       삭제
