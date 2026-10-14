@@ -39,10 +39,16 @@ const NAME_PRIORITY: Partial<Record<DocumentTypeCode, number>> = {
   WORKER_APPLICATION: 1,           // 필기체 (최하)
 };
 
-/** extractedData에서 이름 추출 (서류 유형마다 필드명이 다름) */
+/** extractedData에서 이름 추출 (서류 유형마다 필드명이 다름: name/workerName/participantName/applicantName) */
 function extractName(data: Record<string, unknown>): string | null {
-  const raw = data.name ?? data.workerName ?? data.participantName;
+  const raw = data.name ?? data.workerName ?? data.participantName ?? data.applicantName;
   return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+/** extractedData에서 주민등록번호 추출 (서류마다 residentNumber / residentRegistrationNumber) */
+function extractRrn(data: Record<string, unknown>): string {
+  const raw = data.residentNumber ?? data.residentRegistrationNumber;
+  return typeof raw === 'string' ? raw : '';
 }
 
 /** extractedData에서 생년월일 추출 (주민번호 앞6자리 파생 또는 birthDate 직접)
@@ -53,7 +59,7 @@ function extractBirthDate(data: Record<string, unknown>): string | null {
   if (typeof data.birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate)) {
     return data.birthDate;
   }
-  const raw = typeof data.residentNumber === 'string' ? data.residentNumber : '';
+  const raw = extractRrn(data);
   if (!raw) return null;
   // 대시만 제거 (마스킹 문자 * # 등은 유지)
   const noDash = raw.replace(/-/g, '');
@@ -72,7 +78,7 @@ function extractBirthDate(data: Record<string, unknown>): string | null {
 
 /** extractedData에서 성별 파생 (주민번호 7번째 자리 기준) */
 function extractGender(data: Record<string, unknown>): { gender: Gender | null } {
-  const rrn = typeof data.residentNumber === 'string' ? data.residentNumber.replace(/\D/g, '') : '';
+  const rrn = extractRrn(data).replace(/\D/g, '');
   if (rrn.length >= 7) {
     const gd = rrn[6];
     if (['1', '3'].includes(gd)) return { gender: Gender.MALE };
@@ -580,7 +586,7 @@ export class DocumentsService {
 
     // 이 서류에서 생년월일 추출 (주민번호 앞6 또는 birthDate 직접)
     const birthDate = extractBirthDate(data);
-    const extractedRrn = typeof data.residentNumber === 'string' ? data.residentNumber : null;
+    const extractedRrn = extractRrn(data) || null;
     this.logger.log(
       `[그룹핑] docId=${document.id} type=${document.documentType} ` +
       `residentNumber=${extractedRrn ?? '(없음)'} birthDate=${birthDate ?? '(없음)'} ` +
