@@ -20,6 +20,14 @@ import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
 import { FileRouterService } from './file-router.service';
 
+/** 사업자등록번호를 000-00-00000 형식으로 정규화 (10자리 아니면 null). */
+function normalizeBrn(raw?: string | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length !== 10) return null;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
 // ── 근로자 그룹핑 헬퍼 ──────────────────────────────────────────────────────
 
 /** 이름 신뢰도 우선순위 — 높을수록 우선 */
@@ -399,6 +407,51 @@ export class DocumentsService {
   }
 
   /**
+   * 기업신청서가 기업·사업에 연결되면:
+   *  1) CompanyBusiness를 보장 생성하고 신청서에서 추출한 모집직종을 반영한다.
+   *  2) 기업 레코드의 비어 있는 칸을 신청서 추출값으로 보강한다(기존 값은 유지).
+   *  3) 모집단계를 APPLIED로 상향한다(역행 금지).
+   * 신규 등록/기존 선택(합본 기업선택) 어느 경로든 동일하게 적용된다.
+   */
+  private async linkCompanyApplication(document: Document): Promise<void> {
+    const companyId = document.companyId;
+    const businessId = document.businessId;
+    if (!companyId || !businessId) return;
+
+    const data = (document.extractedData ?? {}) as Record<string, unknown>;
+    const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+    // 1) CompanyBusiness 보장 + 모집직종(신청서 추출) 반영
+    let cb = await this.companyBusinessRepository.findOne({ where: { companyId, businessId } });
+    if (!cb) cb = this.companyBusinessRepository.create({ companyId, businessId });
+    const jobTitle = str(data.recruitJobTitle);
+    const jobCode = str(data.recruitJobCode);
+    if (jobTitle && !cb.recruitJobTitle) cb.recruitJobTitle = jobTitle;
+    if (jobCode && !cb.recruitJobCode) cb.recruitJobCode = jobCode;
+    await this.companyBusinessRepository.save(cb);
+
+    // 2) 기업 레코드: 비어 있는 칸만 신청서 추출값으로 보강 + 3) 모집단계 APPLIED 상향
+    const company = await this.companiesRepository.findOne({ where: { id: companyId } });
+    if (!company) return;
+    if (!company.businessRegistrationNumber) {
+      const brn = normalizeBrn(str(data.businessRegistrationNumber));
+      if (brn) {
+        const conflict = await this.companiesRepository.findOne({ where: { businessRegistrationNumber: brn } });
+        if (!conflict || conflict.id === company.id) company.businessRegistrationNumber = brn;
+      }
+    }
+    if (!company.representativeName) company.representativeName = str(data.representativeName);
+    if (!company.phone) company.phone = str(data.phone);
+    if (!company.email) company.email = str(data.email);
+    if (!company.address) company.address = str(data.address);
+    const current = company.recruitStatus ?? RecruitStatus.PROSPECT;
+    if (RECRUIT_STATUS_ORDER[RecruitStatus.APPLIED] > RECRUIT_STATUS_ORDER[current]) {
+      company.recruitStatus = RecruitStatus.APPLIED;
+    }
+    await this.companiesRepository.save(company);
+  }
+
+  /**
    * COMPANY_APPLICATION 분석 완료 후 기업이 DB에 없으면 추출값으로 자동 등록한다.
    * 기관에 사업이 정확히 1개면 CompanyBusiness도 함께 생성한다.
    * 실패해도 분석 결과를 깨뜨리지 않는다.
@@ -406,7 +459,11 @@ export class DocumentsService {
   private async autoRegisterCompanyIfNew(document: Document): Promise<void> {
     if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
     if (document.documentType !== 'COMPANY_APPLICATION') return;
-    if (document.companyId && document.businessId) return; // 이미 기업·사업 모두 연결됨
+    // 이미 기업·사업 모두 연결됨(합본 분석 기업선택 등) — CB 보장 + 기업정보 보강 + 모집단계 상향 수행
+    if (document.companyId && document.businessId) {
+      await this.linkCompanyApplication(document);
+      return;
+    }
 
     const data = document.extractedData as Record<string, unknown> | null;
 
@@ -426,6 +483,9 @@ export class DocumentsService {
             await this.documentsRepository.save(document);
           }
         }
+        if (document.businessId) {
+          await this.linkCompanyApplication(document);
+        }
         return;
       }
 
@@ -434,14 +494,15 @@ export class DocumentsService {
       const rawName = data.companyName;
       if (typeof rawName !== 'string' || !rawName.trim()) return;
 
-      const brn = typeof rawBrn === 'string' ? rawBrn.trim() : null;
+      const brn = normalizeBrn(typeof rawBrn === 'string' ? rawBrn : null);
       const name = rawName.trim();
 
-      // 사업자번호로 기존 기업 찾기, 없으면 기업명으로 재시도
+      // 사업자번호(정규화)로 기존 기업 찾기, 못 찾으면 기업명으로 재시도
+      // (엑셀 선등록 기업이 사업자번호 없이 있거나 포맷이 달라도 중복 생성되지 않도록)
       let company = brn
         ? await this.companiesRepository.findOne({ where: { businessRegistrationNumber: brn } })
         : null;
-      if (!company && !brn) {
+      if (!company) {
         company = await this.companiesRepository.findOne({ where: { name } });
       }
 
@@ -460,32 +521,17 @@ export class DocumentsService {
         this.logger.log(`기업 자동 등록: ${company.name} (id=${company.id})`);
       }
 
-      // 기관에 사업이 1개뿐이면 CompanyBusiness 자동 생성
-      if (businesses.length === 1) {
-        const businessId = businesses[0].id;
-        const existing = await this.companyBusinessRepository.findOne({
-          where: { companyId: company.id, businessId },
-        });
-        if (!existing) {
-          await this.companyBusinessRepository.save(
-            this.companyBusinessRepository.create({ companyId: company.id, businessId }),
-          );
-        }
-      }
-
-      // 기업신청서 접수 → recruitStatus APPLIED 상향 (역행 금지)
-      const current = company.recruitStatus ?? RecruitStatus.PROSPECT;
-      if (RECRUIT_STATUS_ORDER[RecruitStatus.APPLIED] > RECRUIT_STATUS_ORDER[current]) {
-        company.recruitStatus = RecruitStatus.APPLIED;
-        await this.companiesRepository.save(company);
-      }
-
       // 문서에 기업 연결
       document.companyId = company.id;
       if (!document.businessId && businesses.length === 1) {
         document.businessId = businesses[0].id;
       }
       await this.documentsRepository.save(document);
+
+      // CompanyBusiness 보장 생성 + 기업정보 보강 + 모집단계 APPLIED 상향
+      if (document.businessId) {
+        await this.linkCompanyApplication(document);
+      }
     } catch (error) {
       this.logger.error(`기업 자동 등록 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
     }
