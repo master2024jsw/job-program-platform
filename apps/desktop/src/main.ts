@@ -7,6 +7,8 @@ import { spawn, ChildProcess, exec } from 'child_process';
 const isDev = !app.isPackaged;
 let serverProcess: ChildProcess | null = null;
 let mainWin: BrowserWindow | null = null;
+let isQuitting = false;
+let autoRestartCount = 0;
 
 function serverDir(): string {
   return isDev
@@ -52,6 +54,8 @@ function killPort3000(): Promise<void> {
 
 async function startServer(): Promise<void> {
   if (serverProcess) {
+    // 의도적 교체이므로 이 프로세스의 종료 핸들러가 자동 재시작하지 않도록 표시
+    (serverProcess as ChildProcess & { __intentionalKill?: boolean }).__intentionalKill = true;
     serverProcess.kill('SIGTERM');
     serverProcess = null;
     await new Promise<void>((r) => setTimeout(r, 500));
@@ -97,7 +101,26 @@ async function startServer(): Promise<void> {
   let started = false;
   proc.on('exit', (code) => {
     if (serverProcess === proc) serverProcess = null;
-    if (started && code !== 0 && code !== null) console.error(`[SERVER] 비정상 종료: ${code}`);
+    // 서버가 정상 기동 후 죽으면(크래시·강제종료 등) 앱이 자동으로 재시작한다.
+    // 그래야 서버 한 번 죽었다고 전체가 "Failed to fetch"로 멈추지 않는다.
+    if (!started || isQuitting) return;
+    if ((proc as ChildProcess & { __intentionalKill?: boolean }).__intentionalKill) return;
+    if (autoRestartCount >= 10) {
+      console.error('[SERVER] 자동 재시작 10회 초과 — 중단');
+      mainWin?.webContents.send('server:status', 'error');
+      return;
+    }
+    autoRestartCount++;
+    console.error(`[SERVER] 종료(code=${code}) — 자동 재시작 ${autoRestartCount}/10`);
+    mainWin?.webContents.send('server:status', 'restarting');
+    setTimeout(() => {
+      startServer()
+        .then(() => mainWin?.webContents.send('server:status', 'ready'))
+        .catch((e) => {
+          console.error('[SERVER] 자동 재시작 실패:', e);
+          mainWin?.webContents.send('server:status', 'error');
+        });
+    }, 1500);
   });
 
   // 서버가 포트를 열기 전에 죽으면 120초를 기다리지 않고 즉시 실패시킨다.
@@ -109,6 +132,8 @@ async function startServer(): Promise<void> {
 
   await Promise.race([waitForPort(3000, 120_000), earlyExit]);
   started = true;
+  // 30초 이상 안정적으로 떠 있으면 자동 재시작 카운터를 리셋 (일시적 크래시와 크래시 루프 구분)
+  setTimeout(() => { autoRestartCount = 0; }, 30_000);
 }
 
 function createWindow() {
@@ -156,7 +181,12 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
+  isQuitting = true;
   if (serverProcess) serverProcess.kill('SIGTERM');
   if (process.platform !== 'darwin') app.quit();
 });
