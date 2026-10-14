@@ -35,6 +35,8 @@ export interface Worker {
   position?: string | null;
   contractType?: ContractType | null;
   hireDate?: string | null;
+  /** 인턴십 종료 예정일 (인턴기간 = 입사일~인턴종료일) */
+  internEndDate?: string | null;
   resignDate?: string | null;
   salary?: number | null;
   status: WorkerStatus;

@@ -16,9 +16,9 @@ const emptyForm: WorkerInput = {
   email: '',
   address: '',
   companyId: undefined,
-  position: '',
   contractType: undefined,
   hireDate: '',
+  internEndDate: '',
   resignDate: '',
   salary: undefined,
   status: WorkerStatus.ACTIVE,
@@ -140,9 +140,9 @@ export function WorkersPage() {
       email: worker.email ?? '',
       address: worker.address ?? '',
       companyId: worker.companyId ?? undefined,
-      position: worker.position ?? '',
       contractType: worker.contractType ?? undefined,
       hireDate: worker.hireDate ?? '',
+      internEndDate: worker.internEndDate ?? '',
       resignDate: worker.resignDate ?? '',
       salary: worker.salary ?? undefined,
       status: worker.status,
@@ -162,6 +162,7 @@ export function WorkersPage() {
         ...form,
         companyId: form.companyId || undefined,
         hireDate: form.hireDate || undefined,
+        internEndDate: form.internEndDate || undefined,
         resignDate: form.resignDate || undefined,
         salary: form.salary === undefined || (form.salary as unknown as string) === '' ? undefined : Number(form.salary),
       };
@@ -417,11 +418,12 @@ export function WorkersPage() {
                 />
               </div>
               <div className="field">
-                <label>직급</label>
+                <label>인턴종료일</label>
                 <input
                   className="text-input"
-                  value={form.position ?? ''}
-                  onChange={(e) => setForm({ ...form, position: e.target.value })}
+                  type="date"
+                  value={form.internEndDate ?? ''}
+                  onChange={(e) => setForm({ ...form, internEndDate: e.target.value })}
                 />
               </div>
               <div className="field">
@@ -440,7 +442,7 @@ export function WorkersPage() {
                 </select>
               </div>
               <div className="field">
-                <label>입사일</label>
+                <label>입사일(인턴시작일)</label>
                 <input
                   className="text-input"
                   type="date"

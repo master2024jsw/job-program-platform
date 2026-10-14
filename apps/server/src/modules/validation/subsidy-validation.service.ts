@@ -137,10 +137,18 @@ export class SubsidyValidationService {
         }
       }
 
-      // LABOR_CONTRACT.workerName → name 정규화 (R-302 crossCheck 용)
-      const lcKey = 'LABOR_CONTRACT' as DocumentTypeCode;
-      if (workerByType[lcKey]?.workerName) {
-        workerByType[lcKey] = { ...workerByType[lcKey], name: workerByType[lcKey]!.workerName };
+      // 서류별 상이한 성명·주민번호 필드명을 표준 필드로 정규화 (R-302 crossCheck 등)
+      //  name ← workerName/participantName/applicantName, residentNumber ← residentRegistrationNumber
+      for (const code of Object.keys(workerByType) as DocumentTypeCode[]) {
+        const d = workerByType[code];
+        if (!d) continue;
+        const nm = d.name ?? d.workerName ?? d.participantName ?? d.applicantName;
+        const rrn = d.residentNumber ?? d.residentRegistrationNumber;
+        workerByType[code] = {
+          ...d,
+          ...(nm != null && d.name == null ? { name: nm } : {}),
+          ...(rrn != null && d.residentNumber == null ? { residentNumber: rrn } : {}),
+        };
       }
 
       // SUBSIDY_CALCULATION entries에서 해당 근로자 항목만 필터 주입.

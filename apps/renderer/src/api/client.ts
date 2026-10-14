@@ -64,6 +64,9 @@ export async function downloadFile(path: string, fileName: string): Promise<void
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;
+  // Electron에서 안정적으로 다운로드되도록 DOM에 붙여 클릭하고, revoke는 지연시킨다.
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
