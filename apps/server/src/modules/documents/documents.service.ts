@@ -677,6 +677,8 @@ export class DocumentsService {
       await this.recalcWorkerName(worker, document.companyId, [document, ...toBackfill]);
       // 생년월일 없는 미배정 서류를 Worker 이름으로 흡수 (적격확인서 등)
       await this.absorbUnassignedByWorkerName(worker, document.companyId);
+      // 근로계약서에서 입사일·급여·인턴종료일 반영
+      await this.populateWorkerFromContract(worker.id, document.companyId);
     } catch (error) {
       this.logger.error(`근로자 그룹핑 실패(docId=${document.id}): ${error instanceof Error ? error.message : error}`);
     }
@@ -708,6 +710,44 @@ export class DocumentsService {
   }
 
   /**
+   * 근로계약서(LABOR_CONTRACT)에서 입사일·급여·인턴종료일을 근로자 레코드에 반영한다.
+   * 비어 있는 칸만 보강한다(기존 값 유지). 승인 전에도 대장/엑셀에 값이 채워지도록.
+   */
+  private async populateWorkerFromContract(workerId: string, companyId: string): Promise<void> {
+    const contract = await this.documentsRepository.findOne({
+      where: { companyId, workerId, documentType: 'LABOR_CONTRACT' },
+      order: { createdAt: 'DESC' },
+    });
+    if (!contract) return;
+    const d = (contract.reviewedData ?? contract.extractedData) as Record<string, unknown> | null;
+    if (!d) return;
+    const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    const toNum = (v: unknown): number | null => {
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string') {
+        const n = Number(v.replace(/[^0-9.]/g, ''));
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      return null;
+    };
+    // 입사일 = 인턴시작일(없으면 근로시작일), 인턴종료일, 월급여
+    const hireDate = str(d.internshipStartDate) ?? str(d.internStartDate) ?? str(d.startDate);
+    const internEndDate = str(d.internshipEndDate) ?? str(d.internEndDate);
+    const salary = toNum(d.monthlySalary) ?? toNum(d.salary);
+
+    const worker = await this.workersRepository.findOne({ where: { id: workerId } });
+    if (!worker) return;
+    const patch: Record<string, unknown> = {};
+    if (!worker.hireDate && hireDate) patch.hireDate = hireDate;
+    if (!worker.internEndDate && internEndDate) patch.internEndDate = internEndDate;
+    if (worker.salary == null && salary != null) patch.salary = salary;
+    if (Object.keys(patch).length > 0) {
+      await this.workersRepository.update(workerId, patch);
+      this.logger.log(`근로자 계약정보 반영(docId=${contract.id}): ${JSON.stringify(patch)}`);
+    }
+  }
+
+  /**
    * 생년월일을 추출할 수 없는 서류(적격확인서 등)를 성명+companyId로 기존 Worker에 연결한다.
    * 호출 시점: groupWorkerDocuments 에서 birthDate 미추출 즉시.
    */
@@ -725,6 +765,9 @@ export class DocumentsService {
       document.workerId = worker.id;
       await this.documentsRepository.save(document);
       this.logger.log(`성명 폴백 흡수: name="${name}" → workerId=${worker.id} (docId=${document.id})`);
+      if (document.documentType === 'LABOR_CONTRACT') {
+        await this.populateWorkerFromContract(worker.id, document.companyId);
+      }
     } else {
       this.logger.warn(`근로자 서류 미배정(성명 "${name}" 매칭 Worker 없음): docId=${document.id}`);
     }
