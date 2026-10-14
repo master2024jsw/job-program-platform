@@ -9,11 +9,24 @@ import { MailTemplatesService } from './mail-templates.service';
 import { SendMailDto } from './dto/send-mail.dto';
 import { Company } from '../companies/company.entity';
 import { Worker } from '../workers/worker.entity';
+import { Business } from '../businesses/business.entity';
+import { Institution } from '../auth/institution.entity';
 
 function renderTemplate(text: string, variables: Record<string, string>): string {
   return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key) =>
     Object.prototype.hasOwnProperty.call(variables, key) ? variables[key] : match,
   );
+}
+
+/** MAIL_FROM("표시이름 <email>" 또는 "email")에서 표시이름과 주소를 분리한다. */
+function parseFromAddress(mailFrom?: string): { name: string | null; address: string } {
+  const raw = (mailFrom ?? '').trim();
+  const m = raw.match(/^(.*)<([^>]+)>\s*$/);
+  if (m) {
+    const name = m[1].trim().replace(/^["']|["']$/g, '') || null;
+    return { name, address: m[2].trim() };
+  }
+  return { name: null, address: raw };
 }
 
 @Injectable()
@@ -30,7 +43,30 @@ export class MailService {
     private readonly companiesRepository: Repository<Company>,
     @InjectRepository(Worker)
     private readonly workersRepository: Repository<Worker>,
+    @InjectRepository(Business)
+    private readonly businessesRepository: Repository<Business>,
+    @InjectRepository(Institution)
+    private readonly institutionsRepository: Repository<Institution>,
   ) {}
+
+  /** 발송자(from)를 결정한다. 발송자명은 사업의 운영기관명을 사용하고, 주소는 MAIL_FROM(또는 SMTP_USER)에서 가져온다. */
+  private async resolveFrom(businessId?: string): Promise<nodemailer.SendMailOptions['from']> {
+    const parsed = parseFromAddress(this.configService.get<string>('MAIL_FROM'));
+    const address = parsed.address || this.configService.get<string>('SMTP_USER') || '';
+    let name = parsed.name;
+
+    if (businessId) {
+      const business = await this.businessesRepository.findOne({ where: { id: businessId } });
+      if (business) {
+        const institution = await this.institutionsRepository.findOne({ where: { id: business.institutionId } });
+        if (institution?.name) name = institution.name;
+      }
+    }
+
+    if (!address) return name ?? undefined;
+    // 객체 형태로 넘기면 nodemailer가 한글 표시이름을 RFC 2047로 올바르게 인코딩한다.
+    return name ? { name, address } : address;
+  }
 
   private getTransporter(): nodemailer.Transporter {
     if (!this.transporter) {
@@ -102,7 +138,7 @@ export class MailService {
   async send(dto: SendMailDto): Promise<MailLog[]> {
     const recipients = await this.resolveRecipients(dto);
     const { subject, body, templateId } = await this.resolveContent(dto);
-    const from = this.configService.get<string>('MAIL_FROM');
+    const from = await this.resolveFrom(dto.businessId);
 
     const results: MailLog[] = [];
     for (const to of recipients) {

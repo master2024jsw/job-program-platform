@@ -8,9 +8,11 @@ import { MailService } from './mail.service';
 import { MailController } from './mail.controller';
 import { Company } from '../companies/company.entity';
 import { Worker } from '../workers/worker.entity';
+import { Business } from '../businesses/business.entity';
+import { Institution } from '../auth/institution.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([MailTemplate, MailLog, Company, Worker])],
+  imports: [TypeOrmModule.forFeature([MailTemplate, MailLog, Company, Worker, Business, Institution])],
   controllers: [MailTemplatesController, MailController],
   providers: [MailTemplatesService, MailService],
 })
