@@ -37,12 +37,27 @@ function Ok($msg)   { Write-Host "    $msg" -ForegroundColor Green }
 
 Push-Location $RepoRoot
 try {
-  # --- 1) 실행 중인 앱 종료 + 포트 3000 정리 ---
-  Step '실행 중인 앱 종료'
+  # --- 1) 실행 중인 앱 + 서버(node) 완전 종료 (파일 잠금으로 복사 실패 방지) ---
+  Step '실행 중인 앱/서버 종료'
   Get-Process -Name '잡도리AI' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-  $pids = (netstat -ano | Select-String ':3000 ' | Select-String 'LISTENING') -replace '.*\s(\d+)$', '$1'
-  foreach ($procId in $pids) { if ($procId -match '^\d+$') { Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue } }
-  Start-Sleep -Seconds 2
+  # dist/main.js 로 떠 있는 서버 node 프로세스까지 커맨드라인으로 찾아 종료
+  Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*dist*main.js*' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  # 포트 3000 리스너 정리
+  foreach ($ln in (netstat -ano | Select-String ':3000 ' | Select-String 'LISTENING')) {
+    $p = ($ln.ToString() -split '\s+')[-1]
+    if ($p -match '^\d+$') { Stop-Process -Id ([int]$p) -Force -ErrorAction SilentlyContinue }
+  }
+  # 실제로 종료될 때까지 대기 (최대 15초)
+  for ($w = 0; $w -lt 15; $w++) {
+    Start-Sleep -Seconds 1
+    $alive = Get-Process -Name '잡도리AI' -ErrorAction SilentlyContinue
+    $srv = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -like '*dist*main.js*' }
+    if (-not $alive -and -not $srv) { break }
+  }
+  Start-Sleep -Seconds 1
   Ok '종료 완료'
 
   if ($Full) {
@@ -87,7 +102,13 @@ try {
     $dstServer = Join-Path $Portable 'resources\server\dist'
     Remove-Item $dstServer -Recurse -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path $RepoRoot 'apps\server\dist') $dstServer -Recurse -Force
-    Ok 'server/dist 복사'
+    # 복사 검증: 배포된 main.js가 소스와 동일한지 해시 비교 (잠금으로 stale되는 문제 방지)
+    $srcHash = (Get-FileHash (Join-Path $RepoRoot 'apps\server\dist\main.js')).Hash
+    $dstHash = (Get-FileHash (Join-Path $dstServer 'main.js')).Hash
+    if ($srcHash -ne $dstHash) {
+      throw "server/dist 복사 검증 실패 — 파일이 갱신되지 않았습니다(앱/서버가 아직 떠 있을 수 있음). 앱을 완전히 종료 후 다시 실행하세요."
+    }
+    Ok 'server/dist 복사 (검증 OK)'
 
     # renderer dist
     $dstRenderer = Join-Path $Portable 'resources\renderer\dist'
