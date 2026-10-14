@@ -3,11 +3,20 @@ export enum MailLogStatus {
   FAILED = 'FAILED',
 }
 
+export interface MailAttachmentMeta {
+  id: string;
+  fileName: string;
+  mimeType?: string | null;
+  fileSize: number;
+  createdAt: string;
+}
+
 export interface MailTemplate {
   id: string;
   name: string;
   subject: string;
   body: string;
+  attachments?: MailAttachmentMeta[];
   createdAt: string;
   updatedAt: string;
 }

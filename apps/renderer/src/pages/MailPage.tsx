@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MailLogStatus, RecruitStatus, type CompanyRow, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
+import { MailLogStatus, RecruitStatus, type CompanyRow, type MailAttachmentMeta, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
 import { mailApi, mailTemplatesApi, type CollectSummary, type MailTemplateInput } from '../api/mail';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
@@ -198,6 +198,7 @@ function SendMailPanel({
   const [customSubject, setCustomSubject] = useState('');
   const [customBody, setCustomBody] = useState('');
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const [attachFiles, setAttachFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -241,7 +242,7 @@ function SendMailPanel({
             subject: templateId ? undefined : customSubject,
             body: templateId ? undefined : customBody,
             variables,
-          });
+          }, attachFiles);
           allLogs.push(...logs);
           setProgress({ done: i + 1, total: targets.length });
         }
@@ -255,7 +256,7 @@ function SendMailPanel({
           subject: templateId ? undefined : customSubject,
           body: templateId ? undefined : customBody,
           variables,
-        });
+        }, attachFiles);
         setResult(logs);
       }
     } catch (e) {
@@ -377,8 +378,36 @@ function SendMailPanel({
               <p className="hint-text">제목: {selectedTemplate.subject}</p>
               <div className="card" style={{ padding: '0.75rem', fontSize: '0.85rem' }}
                 dangerouslySetInnerHTML={{ __html: selectedTemplate.body }} />
+              {selectedTemplate.attachments && selectedTemplate.attachments.length > 0 && (
+                <p className="hint-text" style={{ marginTop: '0.5rem' }}>
+                  📎 템플릿 기본 첨부: {selectedTemplate.attachments.map((a) => a.fileName).join(', ')}
+                </p>
+              )}
             </div>
           )}
+
+          <div className="field full" style={{ marginBottom: '1rem' }}>
+            <label>첨부파일 {selectedTemplate?.attachments?.length ? '(템플릿 첨부에 추가)' : ''}</label>
+            <input type="file" multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                setAttachFiles((prev) => [...prev, ...files]);
+                e.target.value = '';
+              }} />
+            {attachFiles.length > 0 && (
+              <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {attachFiles.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem' }}>
+                    <span style={{ flex: 1 }}>📎 {f.name} <span className="hint-text">({Math.round(f.size / 1024)}KB)</span></span>
+                    <button type="button" className="btn btn-sm btn-danger"
+                      onClick={() => setAttachFiles((prev) => prev.filter((_, idx) => idx !== i))}>
+                      제거
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {variableKeys.length > 0 && (
             <div className="field full" style={{ marginBottom: '1rem' }}>
@@ -434,6 +463,8 @@ function TemplatesPanel({
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<MailTemplate | null>(null);
   const [form, setForm] = useState<MailTemplateInput>(emptyTemplateForm);
+  const [attachments, setAttachments] = useState<MailAttachmentMeta[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -444,6 +475,7 @@ function TemplatesPanel({
   const openCreate = () => {
     setEditing(null);
     setForm(emptyTemplateForm);
+    setAttachments([]);
     setFormError(null);
     setModalOpen(true);
   };
@@ -451,8 +483,35 @@ function TemplatesPanel({
   const openEdit = (t: MailTemplate) => {
     setEditing(t);
     setForm({ name: t.name, subject: t.subject, body: t.body });
+    setAttachments(t.attachments ?? []);
     setFormError(null);
     setModalOpen(true);
+  };
+
+  const handleUploadAttachments = async (files: File[]) => {
+    if (!editing || files.length === 0) return;
+    setUploading(true);
+    setFormError(null);
+    try {
+      const saved = await mailTemplatesApi.addAttachments(editing.id, files);
+      setAttachments((prev) => [...prev, ...saved]);
+      await reload();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : '첨부 업로드에 실패했습니다.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAttachment = async (attachmentId: string) => {
+    if (!editing) return;
+    try {
+      await mailTemplatesApi.removeAttachment(editing.id, attachmentId);
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      await reload();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '첨부 삭제에 실패했습니다.');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -501,19 +560,21 @@ function TemplatesPanel({
             <tr>
               <th>템플릿명</th>
               <th>제목</th>
+              <th>첨부</th>
               <th>작업</th>
             </tr>
           </thead>
           <tbody>
             {templates.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={3}>등록된 템플릿이 없습니다.</td>
+                <td colSpan={4}>등록된 템플릿이 없습니다.</td>
               </tr>
             )}
             {templates.map((t) => (
               <tr key={t.id}>
                 <td>{t.name}</td>
                 <td>{t.subject}</td>
+                <td>{t.attachments?.length ? `📎 ${t.attachments.length}` : '-'}</td>
                 <td className="actions">
                   <button className="btn btn-sm" onClick={() => openEdit(t)}>
                     수정
@@ -553,7 +614,7 @@ function TemplatesPanel({
                 onChange={(e) => setForm({ ...form, subject: e.target.value })}
               />
             </div>
-            <div className="field full">
+            <div className="field full" style={{ marginBottom: '0.85rem' }}>
               <label className="required">본문 (HTML 가능)</label>
               <textarea
                 className="textarea-input"
@@ -563,6 +624,38 @@ function TemplatesPanel({
                 value={form.body}
                 onChange={(e) => setForm({ ...form, body: e.target.value })}
               />
+            </div>
+
+            <div className="field full">
+              <label>기본 첨부파일</label>
+              {editing ? (
+                <>
+                  <input type="file" multiple disabled={uploading}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      handleUploadAttachments(files);
+                      e.target.value = '';
+                    }} />
+                  {uploading && <p className="hint-text">업로드 중...</p>}
+                  {attachments.length > 0 && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {attachments.map((a) => (
+                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem' }}>
+                          <span style={{ flex: 1 }}>📎 {a.fileName} <span className="hint-text">({Math.round(a.fileSize / 1024)}KB)</span></span>
+                          <button type="button" className="btn btn-sm btn-danger" onClick={() => handleRemoveAttachment(a.id)}>
+                            삭제
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="hint-text" style={{ marginTop: '0.35rem' }}>
+                    이 템플릿으로 보내는 모든 메일에 자동 첨부됩니다.
+                  </p>
+                </>
+              ) : (
+                <p className="hint-text">템플릿을 먼저 저장한 뒤, 다시 수정으로 들어오면 첨부파일을 추가할 수 있습니다.</p>
+              )}
             </div>
 
             {formError && <p className="error-text">{formError}</p>}

@@ -18,6 +18,13 @@ function renderTemplate(text: string, variables: Record<string, string>): string
   );
 }
 
+/** 발송 시 즉석 첨부(발송 요청에 함께 업로드된 파일). */
+export interface AdHocAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 /** MAIL_FROM("표시이름 <email>" 또는 "email")에서 표시이름과 주소를 분리한다. */
 function parseFromAddress(mailFrom?: string): { name: string | null; address: string } {
   const raw = (mailFrom ?? '').trim();
@@ -66,6 +73,30 @@ export class MailService {
     if (!address) return name ?? undefined;
     // 객체 형태로 넘기면 nodemailer가 한글 표시이름을 RFC 2047로 올바르게 인코딩한다.
     return name ? { name, address } : address;
+  }
+
+  /** 템플릿 첨부 + 즉석 첨부를 nodemailer attachments 배열로 만든다. */
+  private async buildAttachments(
+    templateId: string | undefined,
+    files?: AdHocAttachment[],
+  ): Promise<nodemailer.SendMailOptions['attachments']> {
+    const attachments: NonNullable<nodemailer.SendMailOptions['attachments']> = [];
+    if (templateId) {
+      const tplAttachments = await this.mailTemplatesService.getAttachmentsWithContent(templateId);
+      for (const a of tplAttachments) {
+        attachments.push({
+          filename: a.fileName,
+          content: Buffer.from(a.content, 'base64'),
+          contentType: a.mimeType ?? undefined,
+        });
+      }
+    }
+    if (files?.length) {
+      for (const f of files) {
+        attachments.push({ filename: f.filename, content: f.content, contentType: f.contentType });
+      }
+    }
+    return attachments.length ? attachments : undefined;
   }
 
   private getTransporter(): nodemailer.Transporter {
@@ -135,10 +166,11 @@ export class MailService {
     return { subject: renderTemplate(dto.subject, variables), body: renderTemplate(dto.body, variables) };
   }
 
-  async send(dto: SendMailDto): Promise<MailLog[]> {
+  async send(dto: SendMailDto, files?: AdHocAttachment[]): Promise<MailLog[]> {
     const recipients = await this.resolveRecipients(dto);
     const { subject, body, templateId } = await this.resolveContent(dto);
     const from = await this.resolveFrom(dto.businessId);
+    const attachments = await this.buildAttachments(templateId, files);
 
     const results: MailLog[] = [];
     for (const to of recipients) {
@@ -151,7 +183,7 @@ export class MailService {
         status: MailLogStatus.SUCCESS,
       });
       try {
-        await this.getTransporter().sendMail({ from, to, subject, html: body });
+        await this.getTransporter().sendMail({ from, to, subject, html: body, attachments });
       } catch (error) {
         log.status = MailLogStatus.FAILED;
         log.errorMessage = error instanceof Error ? error.message : String(error);
