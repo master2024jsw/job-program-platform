@@ -118,15 +118,25 @@ export class WorkerValidationService {
       }
     }
 
-    // R-209 crossCheck용 성명 필드 정규화:
-    // LABOR_CONTRACT.workerName, EDUCATION_LEDGER.participantName → name
-    const lcKey = 'LABOR_CONTRACT' as DocumentTypeCode;
-    const elKey = 'EDUCATION_LEDGER' as DocumentTypeCode;
-    if (byType[lcKey]?.workerName) {
-      byType[lcKey] = { ...byType[lcKey], name: byType[lcKey]!.workerName };
-    }
-    if (byType[elKey]?.participantName) {
-      byType[elKey] = { ...byType[elKey], name: byType[elKey]!.participantName };
+    // 서류 유형마다 다른 성명·주민번호 필드명을 규칙/매핑이 기대하는 표준 필드로 정규화한다.
+    //  - 성명: name / workerName / participantName / applicantName → name
+    //  - 주민번호: residentNumber / residentRegistrationNumber → residentNumber
+    // (정규화 안 하면 R-201·202·209 등이 WORKER_APPLICATION에서 값을 못 찾아 NEEDS_REVIEW 처리됨)
+    for (const code of Object.keys(byType) as DocumentTypeCode[]) {
+      const d = byType[code];
+      if (!d) continue;
+      const nm = d.name ?? d.workerName ?? d.participantName ?? d.applicantName;
+      const rrn = d.residentNumber ?? d.residentRegistrationNumber;
+      // 인턴약정기간: 근로계약서가 internshipStartDate/internshipEndDate로 추출 → 규칙이 쓰는 internStartDate/internEndDate로
+      const isd = d.internStartDate ?? d.internshipStartDate;
+      const ied = d.internEndDate ?? d.internshipEndDate;
+      byType[code] = {
+        ...d,
+        ...(nm != null && d.name == null ? { name: nm } : {}),
+        ...(rrn != null && d.residentNumber == null ? { residentNumber: rrn } : {}),
+        ...(isd != null && d.internStartDate == null ? { internStartDate: isd } : {}),
+        ...(ied != null && d.internEndDate == null ? { internEndDate: ied } : {}),
+      };
     }
 
     // 근로자 컨텍스트 주입 (R-200 만연령 확인)
