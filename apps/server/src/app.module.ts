@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { WorkersModule } from './modules/workers/workers.module';
+import { ParticipationsModule } from './modules/participations/participations.module';
 import { MailModule } from './modules/mail/mail.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { MailCollectorModule } from './modules/mail-collector/mail-collector.module';
@@ -23,6 +24,7 @@ import { ValidationModule } from './modules/validation/validation.module';
     BusinessesModule,
     CompaniesModule,
     WorkersModule,
+    ParticipationsModule,
     MailModule,
     DocumentsModule,
     MailCollectorModule,

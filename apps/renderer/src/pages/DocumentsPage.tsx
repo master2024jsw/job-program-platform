@@ -6,6 +6,7 @@ import {
   type DocumentTypeCode,
   type DocumentTypeDef,
   type MailTemplate,
+  type RequiredDocumentStage,
   type Worker,
 } from '@job-program/shared';
 import { documentsApi } from '../api/documents';
@@ -18,6 +19,16 @@ import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { RequiredDocumentsChecklist } from '../components/RequiredDocumentsChecklist';
 import { CompanyValidationPanel } from '../components/CompanyValidationPanel';
+
+type DocGroup = 'ALL' | 'COMPANY' | 'WORKER' | 'SUBSIDY' | 'NONE';
+
+const DOC_GROUP_LABEL: Record<DocGroup, string> = {
+  ALL: '전체',
+  COMPANY: '기업 서류',
+  WORKER: '근로자 서류',
+  SUBSIDY: '지원금 서류',
+  NONE: '미지정',
+};
 
 type ViewMode = 'current' | 'unassigned' | 'checklist' | 'validation';
 
@@ -35,10 +46,48 @@ function statusBadgeClass(status: DocumentAnalysisStatus): string {
   return 'badge-inactive';
 }
 
+/**
+ * 이 서류에서 실제로 쓸 값을 고른다.
+ *
+ * 검토값(reviewedData)이 정답이지만, **빈 검토값은 추출값을 가리지 않는다.**
+ * 추출이 비어 있을 때 「검토완료」를 누르면 빈 검토값이 저장되는데, 그 뒤 추출을 고쳐 재분석해도
+ * 빈 검토값이 남아 화면·검증이 계속 빈 값을 보게 된다(2026-10-16·10-19 실제로 겪음).
+ * 서버의 document-data.util.ts 와 같은 규칙이다 — 한쪽만 고치면 화면과 검증이 어긋난다.
+ */
+function effectiveDocumentData(doc: {
+  reviewedData?: unknown;
+  extractedData?: unknown;
+}): Record<string, unknown> | null {
+  const isEmpty = (v: unknown): boolean => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return true;
+    const r = v as Record<string, unknown>;
+    return !Object.keys(r).some((k) => {
+      if (k === 'documentType' || k === 'missingItems') return false;
+      const val = r[k];
+      if (val == null) return false;
+      if (typeof val === 'string') return val.trim() !== '';
+      if (Array.isArray(val)) return val.length > 0;
+      return true;
+    });
+  };
+  if (!isEmpty(doc.reviewedData)) return doc.reviewedData as Record<string, unknown>;
+  if (doc.extractedData && typeof doc.extractedData === 'object' && !Array.isArray(doc.extractedData)) {
+    return doc.extractedData as Record<string, unknown>;
+  }
+  return (doc.reviewedData as Record<string, unknown> | null) ?? null;
+}
+
 function getMissingItems(doc: Document): string[] {
-  const data = (doc.reviewedData ?? doc.extractedData) as Record<string, unknown> | null;
+  const data = effectiveDocumentData(doc);
   const items = data?.missingItems;
   return Array.isArray(items) ? items.map(String) : [];
+}
+
+
+/** AI 가 적어둔 관찰 메모를 툴팁 문구로 만든다. 판정이 아니라는 점을 먼저 밝힌다. */
+function aiNoteTooltip(items: string[]): string {
+  const nl = String.fromCharCode(10);
+  return 'AI 가 적어둔 참고 메모입니다 (판정 아님):' + nl + nl + items.join(nl);
 }
 
 export function DocumentsPage() {
@@ -53,6 +102,8 @@ export function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [analyzingSelected, setAnalyzingSelected] = useState(false);
+  // Shift 범위 선택의 기준점 — 마지막으로 누른 줄.
+  const lastClickedIdRef = useRef<string | null>(null);
   const [uploadDocumentType, setUploadDocumentType] = useState<DocumentTypeCode | ''>('');
   const [uploadCompanyId, setUploadCompanyId] = useState<string>('');
   const [combinedTarget, setCombinedTarget] = useState<Document | null>(null);
@@ -60,6 +111,10 @@ export function DocumentsPage() {
   const [reviewing, setReviewing] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('current');
   const [checklistCompanyId, setChecklistCompanyId] = useState('');
+  // 서류 구분(기업/근로자/지원금) 필터. 구분 정의는 필수서류 원장의 stage.target 을 그대로 쓴다 —
+  // 화면에서 따로 목록을 만들면 원장이 바뀔 때 조용히 어긋난다.
+  const [docGroup, setDocGroup] = useState<DocGroup>('ALL');
+  const [stageDefs, setStageDefs] = useState<RequiredDocumentStage[]>([]);
   const [checklistWorkerId, setChecklistWorkerId] = useState('');
   const [validationCompanyId, setValidationCompanyId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -94,18 +149,48 @@ export function DocumentsPage() {
     }
   };
 
-  const toggleSelect = (id: string) => {
+  /**
+   * 체크박스 선택.
+   *
+   * Shift 를 누른 채 누르면 **직전에 누른 줄부터 지금 줄까지**를 한 번에 켠다.
+   * 범위는 지금 화면에 보이는 순서(visibleDocuments) 기준이다 — 구분 필터로 걸러낸 뒤에는
+   * 안 보이는 줄까지 같이 켜지면 사용자가 의도하지 않은 문서를 분석하게 된다.
+   *
+   * Shift 범위 선택은 **항상 켜기**다(토글이 아니다). 엑셀·파일탐색기와 같은 동작이고,
+   * 여러 건을 고르려는 의도일 때 중간이 꺼져버리는 일을 막는다.
+   */
+  const toggleSelect = (id: string, shiftKey = false) => {
+    const list = visibleDocuments;
+    // 기준점은 updater 안에서 읽으면 안 된다 — setSelectedIds 의 함수형 updater 는 나중에 실행되는데
+    // 아래에서 ref 를 먼저 덮어쓰기 때문에, 실행 시점에는 이미 방금 누른 줄로 바뀌어 있다
+    // (그래서 범위가 항상 1칸으로 잡혔다). 호출 시점의 값을 지금 붙잡아 둔다.
+    const anchor = lastClickedIdRef.current;
+    const from = anchor ? list.findIndex((d) => d.id === anchor) : -1;
+    const to = list.findIndex((d) => d.id === id);
+
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (shiftKey && from !== -1 && to !== -1) {
+        const [lo, hi] = from <= to ? [from, to] : [to, from];
+        for (let i = lo; i <= hi; i++) next.add(list[i].id);
+      } else if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
+    // Shift 로 범위를 잡은 뒤에도 기준점은 '마지막으로 누른 줄'로 옮긴다(엑셀과 같은 동작).
+    lastClickedIdRef.current = id;
   };
 
   const toggleSelectAll = () => {
     setSelectedIds((prev) =>
-      prev.size === documents.length ? new Set() : new Set(documents.map((d) => d.id)),
+      prev.size === visibleDocuments.length && visibleDocuments.length > 0
+        ? new Set()
+        : new Set(visibleDocuments.map((d) => d.id)),
     );
+    lastClickedIdRef.current = null;
   };
 
   const handleAnalyzeSelected = async () => {
@@ -139,6 +224,50 @@ export function DocumentsPage() {
   useEffect(() => {
     requiredDocumentsApi.documentTypes().then(setDocumentTypes).catch(() => undefined);
   }, []);
+
+  // 현재 사업의 단계별 필수서류 정의 → 서류종류가 어느 구분에 속하는지 알아낸다.
+  useEffect(() => {
+    const typeCode = currentBusiness?.typeCode;
+    if (!typeCode) {
+      setStageDefs([]);
+      return;
+    }
+    requiredDocumentsApi
+      .findByTypeCode(typeCode)
+      .then((def) => setStageDefs(def?.stages ?? []))
+      .catch(() => setStageDefs([]));
+  }, [currentBusiness?.typeCode]);
+
+  /**
+   * 서류종류 → 구분 집합.
+   * 한 종류가 두 구분에 들어갈 수 있다 (근로계약서는 근로자 서류이면서 지원금 증빙이기도 하다).
+   */
+  const groupsByType = useMemo(() => {
+    const m = new Map<string, Set<DocGroup>>();
+    for (const stage of stageDefs) {
+      const g = stage.target as DocGroup;
+      if (g !== 'COMPANY' && g !== 'WORKER' && g !== 'SUBSIDY') continue;
+      for (const code of [...stage.documents, ...(stage.optional ?? [])]) {
+        if (!m.has(code)) m.set(code, new Set());
+        m.get(code)!.add(g);
+      }
+    }
+    return m;
+  }, [stageDefs]);
+
+  const visibleDocuments = useMemo(() => {
+    if (docGroup === 'ALL') return documents;
+    if (docGroup === 'NONE') {
+      return documents.filter((d) => !d.documentType || !groupsByType.has(d.documentType));
+    }
+    return documents.filter((d) => !!d.documentType && groupsByType.get(d.documentType)?.has(docGroup));
+  }, [documents, docGroup, groupsByType]);
+
+  const groupCount = (g: DocGroup): number => {
+    if (g === 'ALL') return documents.length;
+    if (g === 'NONE') return documents.filter((d) => !d.documentType || !groupsByType.has(d.documentType)).length;
+    return documents.filter((d) => !!d.documentType && groupsByType.get(d.documentType)?.has(g)).length;
+  };
 
   const handleAssignToCurrentBusiness = async (doc: Document) => {
     if (!currentBusinessId) return;
@@ -446,6 +575,34 @@ export function DocumentsPage() {
 
           {error && <p className="error-text">{error}</p>}
 
+          {/* 서류 구분 필터 + Shift 선택 안내 */}
+          <div className="card" style={{ padding: '0.6rem 0.8rem', marginBottom: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600, marginRight: '0.2rem' }}>구분</span>
+              {(['ALL', 'COMPANY', 'WORKER', 'SUBSIDY', 'NONE'] as DocGroup[]).map((g) => {
+                const n = groupCount(g);
+                return (
+                  <button
+                    key={g}
+                    className={`btn btn-sm ${docGroup === g ? 'btn-primary' : ''}`}
+                    onClick={() => {
+                      setDocGroup(g);
+                      // 구분을 바꾸면 안 보이는 문서가 선택된 채로 남지 않게 비운다.
+                      setSelectedIds(new Set());
+                      lastClickedIdRef.current = null;
+                    }}
+                  >
+                    {DOC_GROUP_LABEL[g]} ({n})
+                  </button>
+                );
+              })}
+            </div>
+            <p className="hint-text" style={{ margin: '0.4rem 0 0' }}>
+              체크박스를 누른 뒤 <strong>Shift</strong> 를 누른 채 다른 줄을 누르면 그 사이가 모두 선택됩니다.
+              근로계약서처럼 근로자·지원금 양쪽에 쓰이는 서류는 두 구분 모두에 나옵니다.
+            </p>
+          </div>
+
           <div className="card">
             <div style={{ overflowX: 'auto' }}>
             <table className="data-table">
@@ -454,7 +611,7 @@ export function DocumentsPage() {
               <th style={{ width: '2rem' }}>
                 <input
                   type="checkbox"
-                  checked={documents.length > 0 && selectedIds.size === documents.length}
+                  checked={visibleDocuments.length > 0 && selectedIds.size === visibleDocuments.length}
                   onChange={toggleSelectAll}
                 />
               </th>
@@ -463,7 +620,7 @@ export function DocumentsPage() {
               <th>출처</th>
               <th>연결된 기업/근로자</th>
               <th>상태</th>
-              <th>미비여부</th>
+              <th>AI 참고</th>
               <th>등록일시</th>
               <th>작업</th>
             </tr>
@@ -474,13 +631,17 @@ export function DocumentsPage() {
                 <td colSpan={9}>불러오는 중...</td>
               </tr>
             )}
-            {!loading && documents.length === 0 && (
+            {!loading && visibleDocuments.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={9}>등록된 문서가 없습니다.</td>
+                <td colSpan={9}>
+                  {documents.length === 0
+                    ? '등록된 문서가 없습니다.'
+                    : `이 구분(${DOC_GROUP_LABEL[docGroup]})에 해당하는 문서가 없습니다.`}
+                </td>
               </tr>
             )}
             {!loading &&
-              documents.map((doc) => {
+              visibleDocuments.map((doc) => {
                 const missingItems = getMissingItems(doc);
                 return (
                 <tr key={doc.id}>
@@ -488,7 +649,9 @@ export function DocumentsPage() {
                     <input
                       type="checkbox"
                       checked={selectedIds.has(doc.id)}
-                      onChange={() => toggleSelect(doc.id)}
+                      // onChange 이벤트에는 shiftKey 가 없다. 클릭에서 받아 직접 처리한다.
+                      onChange={() => undefined}
+                      onClick={(e) => toggleSelect(doc.id, e.shiftKey)}
                     />
                   </td>
                   <td>{doc.fileName}</td>
@@ -504,7 +667,14 @@ export function DocumentsPage() {
                   </td>
                   <td>
                     {missingItems.length > 0 ? (
-                      <span className="badge badge-failed">미비 {missingItems.length}건</span>
+                      // AI 가 적어둔 관찰 메모다. 서류 미비 '판정'이 아니다 (설계서 §9.3).
+                      // 실제 미비 판정은 검증 결과에서 규칙으로 나온다.
+                      <span
+                        className="badge badge-pending"
+                        title={aiNoteTooltip(missingItems)}
+                      >
+                        참고 {missingItems.length}건
+                      </span>
                     ) : (
                       '-'
                     )}
@@ -622,7 +792,7 @@ function DocumentReviewModal({
   onAnalyze: () => void;
   onSaved: (updated: Document) => void;
 }) {
-  const initialData = document.reviewedData ?? document.extractedData ?? {};
+  const initialData = effectiveDocumentData(document) ?? {};
   const [jsonText, setJsonText] = useState(JSON.stringify(initialData, null, 2));
   const [companyId, setCompanyId] = useState(document.companyId ?? '');
   const [workerId, setWorkerId] = useState(document.workerId ?? '');
