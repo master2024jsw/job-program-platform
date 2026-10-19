@@ -4,6 +4,7 @@ import { Document } from './document.entity';
 import { Company } from '../companies/company.entity';
 import { CompanyBusiness } from '../companies/company-business.entity';
 import { Worker } from '../workers/worker.entity';
+import { Participation } from '../participations/participation.entity';
 import { Business } from '../businesses/business.entity';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
@@ -17,10 +18,12 @@ import { BusinessesModule } from '../businesses/businesses.module';
 import { RequiredDocumentsModule } from '../required-documents/required-documents.module';
 import { ValidationModule } from '../validation/validation.module';
 import { FileRouterService } from './file-router.service';
+import { CompaniesModule } from '../companies/companies.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Document, Company, CompanyBusiness, Worker, Business]),
+    TypeOrmModule.forFeature([Document, Company, CompanyBusiness, Worker, Business, Participation]),
+    CompaniesModule,
     BusinessesModule,
     RequiredDocumentsModule,
     ValidationModule,

@@ -1,0 +1,110 @@
+{
+  "_note": "합성(가짜) 테스트 자료입니다. 실제 개인정보가 아닙니다. 설계서 §17 — 실자료 대신 합성자료로 검증.",
+  "_designedToPass": "검증규칙 R-101~104(기업), R-200~210(근로자), R-301~309(지원금)을 모두 통과하도록 값을 서로 맞춰 두었습니다.",
+
+  "company": {
+    "name": "한빛물류(주)",
+    "businessRegistrationNumber": "123-45-67890",
+    "representativeName": "김한빛",
+    "phone": "053-123-4567",
+    "email": "hanbit@example.com",
+    "fax": "053-123-4568",
+    "address": "대구광역시 북구 침산로 100, 3층",
+    "industryType": "도로화물운송업",
+    "recruitJobTitle": "버스 운전원",
+    "recruitJobCode": "6222",
+    "_jobCodeNote": "job-classifications.json 에서 ELIGIBLE 로 판정되는 코드"
+  },
+
+  "operationPlan": {
+    "generalTypeCount": 1,
+    "intergenerationalTypeCount": 0,
+    "plannedHeadcount": 1,
+    "representativeConsentToShareAdminInfo": "예"
+  },
+
+  "insurance": {
+    "nationalPension": "가입",
+    "healthInsurance": "가입",
+    "industrialAccident": "가입",
+    "employmentInsurance": "가입",
+    "_note": "R-102 는 4개 모두 '가입' 이어야 통과"
+  },
+
+  "worker": {
+    "name": "박영수",
+    "birthDate": "1962-03-15",
+    "_ageNote": "2026년 기준 만 64세 — R-200(만 60세 이상) 통과",
+    "residentNumber": "620315-1234567",
+    "_rrnNote": "형식만 맞춘 가짜 번호입니다. 실제 주민번호가 아닙니다.",
+    "gender": "남",
+    "phone": "010-1234-5678",
+    "email": "parkys@example.com",
+    "address": "대구광역시 동구 신암로 55"
+  },
+
+  "intern": {
+    "startDate": "2026-06-01",
+    "endDate": "2026-08-31",
+    "_periodNote": "3개월 — R-205(1~3개월 이내) 통과. 안내일(입사+3개월)=2026-09-01 이라 이미 신청가능 상태",
+    "monthlySalary": 2000000,
+    "position": "버스 운전원",
+    "workHours": "09:00~18:00 (휴게 12:00~13:00)",
+    "probationKeyword": "수습(인턴) 기간"
+  },
+
+  "employmentHistory": {
+    "previousWorkplace": "대성운수(주)",
+    "previousAcquiredDate": "2023-04-01",
+    "previousLostDate": "2026-05-15",
+    "_note": "상실일(2026-05-15) < 근로시작일(2026-06-01) → R-203 통과. 참여기업과 다른 사업장이라 R-204 통과"
+  },
+
+  "education": {
+    "name": "시니어 인턴 직무교육",
+    "org": "이노비즈",
+    "date": "2026-06-05",
+    "_note": "교육일자 ≥ 근로시작일 → R-208 통과"
+  },
+
+  "payroll": {
+    "month": "2026-06",
+    "baseSalary": 2000000,
+    "totalPay": 2000000,
+    "totalDeduction": 180000,
+    "netPay": 1820000,
+    "_note": "명세서 기본급 ≥ 계약서 월급여 → R-306 통과"
+  },
+
+  "transfer": {
+    "amount": 1820000,
+    "date": "2026-07-10",
+    "_note": "이체금액 = 명세서 차감지급액 → R-307 통과"
+  },
+
+  "bankAccount": {
+    "bankName": "대구은행",
+    "accountNumber": "123-456-789012",
+    "accountHolder": "한빛물류(주)",
+    "isBusinessAccount": true,
+    "_note": "예금주 = 기업 법인상호 → R-308c 통과"
+  },
+
+  "subsidy": {
+    "benefitType": "인턴 지원금",
+    "rounds": [
+      { "round": 1, "periodStart": "2026-06-01", "periodEnd": "2026-06-30", "amount": 400000 },
+      { "round": 2, "periodStart": "2026-07-01", "periodEnd": "2026-07-31", "amount": 400000 },
+      { "round": 3, "periodStart": "2026-08-01", "periodEnd": "2026-08-31", "amount": 400000 }
+    ],
+    "applicantCount": 1,
+    "totalAmount": 1200000,
+    "_calcNote": "min(월급여 2,000,000 x 50%, 월상한 400,000) = 400,000 x 3회차 = 1,200,000 → R-303·R-309 통과"
+  },
+
+  "institution": {
+    "name": "이노비즈",
+    "businessName": "현장실습훈련(시니어인턴십)",
+    "year": 2026
+  }
+}

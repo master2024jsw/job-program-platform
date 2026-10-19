@@ -27,8 +27,9 @@ import { AnalyzeDocumentDto } from './dto/analyze-document.dto';
 import { Document } from './document.entity';
 import { BusinessesService } from '../businesses/businesses.service';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { resolveDataDir } from '../../common/data-dir';
 
-const inboxDir = path.join(process.cwd(), 'data', '_inbox');
+const inboxDir = path.join(resolveDataDir(), '_inbox');
 
 @Controller('documents')
 export class DocumentsController {

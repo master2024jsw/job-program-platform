@@ -3,22 +3,26 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CompanyStatus, RecruitStatus, RECRUIT_STATUS_ORDER, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, Gender, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
+import { CompanyStage, CompanyStatus, RecruitStatus, RECRUIT_STATUS_ORDER, DOCUMENT_TYPE_CODES, DocumentAnalysisStatus, Gender, WorkerStatus, type DocumentTypeCode } from '@job-program/shared';
 import { buildExcelBuffer, type ExcelColumn } from '../../common/excel.util';
 import { maskDeep } from '../../common/masking.util';
 import { ValidationService } from '../validation/validation.service';
 import { WorkerValidationService } from '../validation/worker-validation.service';
 import { Document } from './document.entity';
+import { CompanyStageService } from '../companies/company-stage.service';
 import { Company } from '../companies/company.entity';
 import { CompanyBusiness } from '../companies/company-business.entity';
 import { Business } from '../businesses/business.entity';
 import { Worker } from '../workers/worker.entity';
+import { Participation } from '../participations/participation.entity';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { AnalyzeDocumentDto } from './dto/analyze-document.dto';
 import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
 import { FileRouterService } from './file-router.service';
+import { extractPdfAnnotationTexts, buildAnnotationHint } from './pdf-annotations.util';
+import { effectiveDocumentData } from './document-data.util';
 
 /** 사업자등록번호를 000-00-00000 형식으로 정규화 (10자리 아니면 null). */
 function normalizeBrn(raw?: string | null): string | null {
@@ -105,8 +109,10 @@ const REPORT_COLUMNS: ExcelColumn[] = [
   { header: '파일명', key: 'fileName', width: 24 },
   { header: '출처', key: 'source', width: 12 },
   { header: '상태', key: 'status', width: 10 },
-  { header: '미비여부', key: 'hasMissingItems', width: 10 },
-  { header: '미비항목', key: 'missingItems', width: 36 },
+  // AI 가 적어둔 관찰 메모다. 서류 미비 '판정'이 아니다 (설계서 §9.3·F04).
+  // 판정은 검증 결과(판정이력)에서 규칙으로 나온다 — 여기 값을 미비 판정으로 읽으면 안 된다.
+  { header: 'AI 참고메모 유무', key: 'hasMissingItems', width: 14 },
+  { header: 'AI 참고메모(판정 아님)', key: 'missingItems', width: 36 },
   { header: '추출/검토 결과(JSON)', key: 'extractedSummary', width: 50 },
   { header: '등록일', key: 'createdAt', width: 14 },
   { header: '분석일', key: 'analyzedAt', width: 14 },
@@ -127,11 +133,14 @@ export class DocumentsService {
     private readonly businessesRepository: Repository<Business>,
     @InjectRepository(Worker)
     private readonly workersRepository: Repository<Worker>,
+    @InjectRepository(Participation)
+    private readonly participationsRepository: Repository<Participation>,
     private readonly geminiService: GeminiService,
     private readonly fileConversionService: FileConversionService,
     private readonly validationService: ValidationService,
     private readonly workerValidationService: WorkerValidationService,
     private readonly fileRouterService: FileRouterService,
+    private readonly companyStageService: CompanyStageService,
   ) {}
 
   /** 기업 적격(4단계) 검증 대상 서류유형 — 분석 완료 시 기업 신청 건 검증을 자동 실행한다. */
@@ -213,10 +222,30 @@ export class DocumentsService {
       // 마크다운이 있고 내용이 충분하면(100자↑) 텍스트로 전송, 스캔 PDF 등 텍스트가 빈약하면 PDF 바이너리 직접 전송
       let rawExtracted: Record<string, unknown>;
       const mdText = document.markdownPath ? await fs.readFile(document.markdownPath, 'utf-8') : '';
+
+      // PDF 주석 레이어에 적힌 값을 뽑아 AI 에게 같이 넘긴다.
+      // 관공서 서식에 값을 주석으로 얹어 보내는 경우가 있는데, 그러면 본문 텍스트에도
+      // 문서 이미지에도 안 잡혀서 AI 가 "공란"으로 판단한다 (설계서 §9.4 — 읽은 근거를 남긴다).
+      const annotationTexts = await extractPdfAnnotationTexts(pdfPath);
+      const annotationHint = buildAnnotationHint(annotationTexts);
+      if (annotationTexts.length) {
+        this.logger.log(`주석 텍스트 ${annotationTexts.length}건 추출 (docId=${document.id})`);
+      }
+
       if (mdText.replace(/\s/g, '').length >= 100) {
-        rawExtracted = await this.geminiService.extractFromText(mdText, dto.prompt, document.documentType as DocumentTypeCode | null);
+        rawExtracted = await this.geminiService.extractFromText(
+          mdText,
+          dto.prompt,
+          document.documentType as DocumentTypeCode | null,
+          annotationHint,
+        );
       } else {
-        rawExtracted = await this.geminiService.extractFromPdf(pdfPath, dto.prompt, document.documentType as DocumentTypeCode | null);
+        rawExtracted = await this.geminiService.extractFromPdf(
+          pdfPath,
+          dto.prompt,
+          document.documentType as DocumentTypeCode | null,
+          annotationHint,
+        );
       }
 
       // 외부 AI가 돌려준 추출값을 저장하기 전에 주민번호를 마스킹한다(DB에 평문 미저장, 보안 안내문 준수).
@@ -273,7 +302,9 @@ export class DocumentsService {
 
     try {
       const pdfPath = await this.ensurePdf(document);
-      const items = await this.geminiService.extractAllFromPdf(pdfPath);
+      // 합본에도 주석 레이어 값을 같이 넘긴다 (단일 분석과 같은 이유).
+      const combinedAnnots = await extractPdfAnnotationTexts(pdfPath);
+      const items = await this.geminiService.extractAllFromPdf(pdfPath, buildAnnotationHint(combinedAnnots));
 
       const childIds: string[] = [];
       for (const item of items) {
@@ -283,7 +314,32 @@ export class DocumentsService {
           ? item.documentType
           : undefined;
 
-        const masked = maskDeep({ ...item.extractedData, missingItems: item.missingItems });
+        // 합본 추출은 한 번의 호출로 '쪼개기 + 분류 + 항목추출'을 동시에 시키기 때문에,
+        // 종류는 맞혔는데 항목이 비어 나오는 일이 잦다(단일 분석의 유형 미지정과 같은 실패).
+        // 종류를 알아냈으면 그 유형으로 한 번 더 뽑는다. 유형별 프롬프트는
+        // "다른 서류가 함께 스캔되어 있어도 이 종류만 추출하라"고 지시하므로 합본에서도 동작한다.
+        let fields = item.extractedData;
+        if (validType && Object.keys(fields).length === 0) {
+          try {
+            const retry = await this.geminiService.extractFromPdf(
+              pdfPath,
+              undefined,
+              validType as DocumentTypeCode,
+              buildAnnotationHint(combinedAnnots),
+            );
+            const { documentType: _t, missingItems: _m, ...rest } = retry;
+            if (Object.keys(rest).length > 0) {
+              fields = rest;
+              this.logger.log(`[합본 2단계 추출] type=${validType} 항목=${Object.keys(rest).join(',')}`);
+            }
+          } catch (error) {
+            this.logger.warn(
+              `[합본 2단계 추출] 실패(${validType}): ${error instanceof Error ? error.message : error}`,
+            );
+          }
+        }
+
+        const masked = maskDeep({ ...fields, missingItems: item.missingItems });
 
         const child = this.documentsRepository.create({
           businessId: document.businessId,
@@ -323,15 +379,24 @@ export class DocumentsService {
       // 형제 문서 간 companyId 전파 (기업신청서로 기업 확정된 경우)
       if (childIds.length > 1) {
         const childDocs = await Promise.all(childIds.map((cid) => this.documentsRepository.findOne({ where: { id: cid } })));
-        const anchor = childDocs.find((d) => d?.companyId);
-        if (anchor?.companyId) {
-          for (const sibling of childDocs) {
-            if (sibling && !sibling.companyId) {
-              sibling.companyId = anchor.companyId;
-              sibling.businessId = sibling.businessId ?? anchor.businessId;
-              await this.documentsRepository.save(sibling);
-            }
+        // companyId 와 businessId 를 각각 따로 전파한다.
+        // 예전에는 !sibling.companyId 일 때만 들어와서, companyId 는 있고 businessId 만
+        // 비어 있는 형제가 영영 businessId 를 못 받았다. 그러면 검증이 그 서류를 못 찾는다
+        // (검증은 businessId + companyId 둘 다 맞는 서류만 가져온다).
+        const companyAnchor = childDocs.find((d) => d?.companyId);
+        const businessAnchor = childDocs.find((d) => d?.businessId);
+        for (const sibling of childDocs) {
+          if (!sibling) continue;
+          let touched = false;
+          if (!sibling.companyId && companyAnchor?.companyId) {
+            sibling.companyId = companyAnchor.companyId;
+            touched = true;
           }
+          if (!sibling.businessId && businessAnchor?.businessId) {
+            sibling.businessId = businessAnchor.businessId;
+            touched = true;
+          }
+          if (touched) await this.documentsRepository.save(sibling);
         }
       }
 
@@ -389,15 +454,24 @@ export class DocumentsService {
       // 형제 파일 중 기업신청서 분석으로 companyId가 확정되면 나머지 형제에도 전파
       if (childIds.length > 1) {
         const childDocs = await Promise.all(childIds.map((id) => this.documentsRepository.findOne({ where: { id } })));
-        const anchor = childDocs.find((d) => d?.companyId);
-        if (anchor?.companyId) {
-          for (const sibling of childDocs) {
-            if (sibling && !sibling.companyId) {
-              sibling.companyId = anchor.companyId;
-              sibling.businessId = sibling.businessId ?? anchor.businessId;
-              await this.documentsRepository.save(sibling);
-            }
+        // companyId 와 businessId 를 각각 따로 전파한다.
+        // 예전에는 !sibling.companyId 일 때만 들어와서, companyId 는 있고 businessId 만
+        // 비어 있는 형제가 영영 businessId 를 못 받았다. 그러면 검증이 그 서류를 못 찾는다
+        // (검증은 businessId + companyId 둘 다 맞는 서류만 가져온다).
+        const companyAnchor = childDocs.find((d) => d?.companyId);
+        const businessAnchor = childDocs.find((d) => d?.businessId);
+        for (const sibling of childDocs) {
+          if (!sibling) continue;
+          let touched = false;
+          if (!sibling.companyId && companyAnchor?.companyId) {
+            sibling.companyId = companyAnchor.companyId;
+            touched = true;
           }
+          if (!sibling.businessId && businessAnchor?.businessId) {
+            sibling.businessId = businessAnchor.businessId;
+            touched = true;
+          }
+          if (touched) await this.documentsRepository.save(sibling);
         }
       }
 
@@ -455,6 +529,17 @@ export class DocumentsService {
       company.recruitStatus = RecruitStatus.APPLIED;
     }
     await this.companiesRepository.save(company);
+
+    // 통일된 단계: 기업 서류가 들어왔다는 뜻이지 적격 확인이 끝난 것은 아니다.
+    // 검증 승인 전까지는 '기업서류요청' 단계에 머문다 (설계서 §10.4 — 자료 있음 != 충족).
+    if (businessId) {
+      await this.companyStageService.advanceTo(
+        company.id,
+        businessId,
+        CompanyStage.DOCS_REQUESTED,
+        '기업 신청서류 분석 완료',
+      );
+    }
   }
 
   /**
@@ -547,8 +632,37 @@ export class DocumentsService {
    * 분석 완료된 문서가 기업 적격 서류이고 기업·사업에 연결돼 있으면 기업 신청 건 검증을 실행한다.
    * 검증 실패가 문서 분석 자체를 깨뜨리지 않도록 방어적으로 처리한다.
    */
+  /**
+   * 기업은 정해졌는데 사업이 비어 있는 서류의 businessId 를 채운다.
+   *
+   * 검증은 `businessId + companyId` 가 둘 다 맞는 서류만 가져오므로, businessId 가 비면
+   * 서류가 올라와 있어도 "서류가 없어 확인할 수 없습니다" 로 판정된다.
+   * 메일 수집처럼 사업을 모른 채 들어오는 경로가 있어 안전망을 둔다.
+   *
+   * 근거가 있을 때만 채운다 — 기업이 참여한 사업이 정확히 하나이거나, 기관의 사업이 하나뿐일 때.
+   * 여러 개면 추측하지 않고 비워 둔다(설계서 §18.2 — 매핑 근거 없는 자동 배정 금지).
+   */
+  private async backfillBusinessId(document: Document): Promise<void> {
+    if (document.businessId || !document.companyId) return;
+
+    const cbs = await this.companyBusinessRepository.find({ where: { companyId: document.companyId } });
+    if (cbs.length === 1) {
+      document.businessId = cbs[0].businessId;
+      await this.documentsRepository.save(document);
+      return;
+    }
+    if (cbs.length === 0) {
+      const businesses = await this.businessesRepository.find();
+      if (businesses.length === 1) {
+        document.businessId = businesses[0].id;
+        await this.documentsRepository.save(document);
+      }
+    }
+  }
+
   private async runCompanyValidationIfApplicable(document: Document): Promise<void> {
     if (document.status !== DocumentAnalysisStatus.ANALYZED) return;
+    await this.backfillBusinessId(document);
     if (!document.businessId || !document.companyId) return;
     if (!document.documentType || !DocumentsService.COMPANY_DOC_TYPES.includes(document.documentType as DocumentTypeCode)) {
       return;
@@ -719,7 +833,8 @@ export class DocumentsService {
       order: { createdAt: 'DESC' },
     });
     if (!contract) return;
-    const d = (contract.reviewedData ?? contract.extractedData) as Record<string, unknown> | null;
+    // 빈 검토값이 추출값을 가리지 않게 한다 (document-data.util.ts 참고).
+    const d = effectiveDocumentData(contract);
     if (!d) return;
     const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
     const toNum = (v: unknown): number | null => {
@@ -733,7 +848,20 @@ export class DocumentsService {
     // 입사일 = 인턴시작일(없으면 근로시작일), 인턴종료일, 월급여
     const hireDate = str(d.internshipStartDate) ?? str(d.internStartDate) ?? str(d.startDate);
     const internEndDate = str(d.internshipEndDate) ?? str(d.internEndDate);
-    const salary = toNum(d.monthlySalary) ?? toNum(d.salary);
+    // 급여 key 이름이 곳곳에서 달랐다: AI 스키마는 baseSalary(규칙 원장 R-306 기준),
+    // 예전 코드는 monthlySalary/salary 를 찾고 있었다. 셋 다 받아준다.
+    const rawSalary = toNum(d.baseSalary) ?? toNum(d.monthlySalary) ?? toNum(d.salary);
+
+    // 계약서의 금액은 월급이 아닐 수 있다("월(일, 시간)급" 서식). 일급·시급을 월급으로 넣으면
+    // 지원금이 터무니없이 작게 산정되므로, 월급인 것이 확실할 때만 대장에 넣는다.
+    const payUnit = str(d.payUnit);
+    const isMonthly = payUnit == null || payUnit.includes('월');
+    const salary = isMonthly ? rawSalary : null;
+    if (rawSalary != null && !isMonthly) {
+      this.logger.warn(
+        `근로계약서 급여가 월급이 아님(docId=${contract.id}, 단위=${payUnit}, 금액=${rawSalary}) — 대장 반영 보류, 담당자 확인 필요`,
+      );
+    }
 
     const worker = await this.workersRepository.findOne({ where: { id: workerId } });
     if (!worker) return;
@@ -744,6 +872,17 @@ export class DocumentsService {
     if (Object.keys(patch).length > 0) {
       await this.workersRepository.update(workerId, patch);
       this.logger.log(`근로자 계약정보 반영(docId=${contract.id}): ${JSON.stringify(patch)}`);
+    }
+
+    // 참여기록은 만들 때 worker 값을 복사해 간다. 참여기록이 먼저 만들어졌으면 급여가 비어 있고,
+    // 지원금 산정은 참여기록의 급여를 보므로 '자료 부족 0원'이 된다. 비어 있을 때만 채운다.
+    if (salary != null) {
+      await this.participationsRepository
+        .createQueryBuilder()
+        .update()
+        .set({ salary })
+        .where('worker_id = :wid AND salary IS NULL', { wid: workerId })
+        .execute();
     }
   }
 
@@ -925,7 +1064,7 @@ export class DocumentsService {
     const rows = documents.map((doc) => {
       const company = doc.companyId ? companyMap.get(doc.companyId) : undefined;
       const worker = doc.workerId ? workerMap.get(doc.workerId) : undefined;
-      const data = (doc.reviewedData ?? doc.extractedData) as Record<string, unknown> | null;
+      const data = effectiveDocumentData(doc);
       const missingItems = Array.isArray(data?.missingItems) ? (data!.missingItems as unknown[]).map(String) : [];
 
       return {
@@ -936,7 +1075,13 @@ export class DocumentsService {
         fileName: doc.fileName,
         source: doc.source === 'IMAP' ? '메일수집' : '직접업로드',
         status: STATUS_LABEL[doc.status] ?? doc.status,
-        hasMissingItems: missingItems.length > 0 ? '있음' : '없음',
+        // 분석을 안 했거나 실패한 서류를 '없음'(= 문제없음)으로 보이게 하면 안 된다 (설계서 F04).
+        hasMissingItems:
+          doc.status !== DocumentAnalysisStatus.ANALYZED
+            ? '분석안됨'
+            : missingItems.length > 0
+              ? '있음'
+              : '없음',
         missingItems: missingItems.join(' / '),
         extractedSummary: data ? JSON.stringify(data) : '',
         createdAt: doc.createdAt.toISOString().slice(0, 10),
