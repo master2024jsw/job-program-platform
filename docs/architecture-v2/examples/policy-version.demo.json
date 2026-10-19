@@ -1,0 +1,72 @@
+{
+  "id": "DEMO-POLICY-001",
+  "institutionId": "DEMO-INSTITUTION",
+  "businessTypeCode": "DEMO_ONLY",
+  "guidelineYear": 2026,
+  "version": "0.1.0-demo",
+  "status": "DRAFT",
+  "isDemo": true,
+  "description": "구조 설명 전용 합성 정책. 실제 신원·적격·지원금 판정에 사용할 수 없음.",
+  "effectiveFrom": "2026-01-01",
+  "effectiveUntil": "2026-12-31",
+  "sourceReferencesJson": [
+    {
+      "id": "DEMO-SOURCE",
+      "kind": "SYNTHETIC",
+      "title": "설계 설명용 합성 비교 규칙",
+      "officialGuideline": false
+    }
+  ],
+  "requirementsJson": [
+    {
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "target": "PARTICIPATION",
+      "documentTypes": [
+        "PARTICIPANT_APPLICATION",
+        "EMPLOYMENT_CONTRACT"
+      ],
+      "description": "실제 사업의 필수서류 목록이 아닌 예시"
+    }
+  ],
+  "extractionSchemaRefsJson": [
+    {
+      "documentType": "PARTICIPANT_APPLICATION",
+      "schemaVersion": "demo-person-name-v1"
+    },
+    {
+      "documentType": "EMPLOYMENT_CONTRACT",
+      "schemaVersion": "demo-person-name-v1"
+    }
+  ],
+  "ruleDefinitionsJson": [
+    {
+      "ruleKey": "DEMO-NAME-001",
+      "ruleVersion": "1",
+      "category": "crossCheck",
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "operator": "EQUALS",
+      "left": {
+        "documentType": "PARTICIPANT_APPLICATION",
+        "fieldPath": "person.name",
+        "selection": "EXACTLY_ONE_CONFIRMED_CANDIDATE"
+      },
+      "right": {
+        "documentType": "EMPLOYMENT_CONTRACT",
+        "fieldPath": "person.name",
+        "selection": "EXACTLY_ONE_CONFIRMED_CANDIDATE"
+      },
+      "normalization": [
+        "TRIM"
+      ],
+      "matchOutcome": "PASS",
+      "mismatchOutcome": "FAIL",
+      "missingOutcome": "INSUFFICIENT_DATA",
+      "ambiguousOutcome": "NEEDS_REVIEW",
+      "onMismatchSeverity": "BLOCK",
+      "sourceRef": "DEMO-SOURCE",
+      "description": "해당 심사 대상에 선택된 두 서류의 합성 이름 문자열을 비교. 이름만으로 사람 원장을 병합하지 않음."
+    }
+  ],
+  "publishedBy": null,
+  "publishedAt": null
+}

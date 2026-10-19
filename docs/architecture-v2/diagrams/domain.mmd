@@ -1,0 +1,83 @@
+erDiagram
+    %% Proposed v2 logical model, not the current production database.
+    %% Only key fields are shown. Infrastructure and some tenant fields are omitted for readability.
+    INSTITUTION ||--o{ BUSINESS : owns
+    INSTITUTION ||--o{ USER_ACCOUNT : owns
+    USER_ACCOUNT ||--o{ USER_BUSINESS : assigned
+    BUSINESS ||--o{ USER_BUSINESS : permits
+    BUSINESS ||--o{ COMPANY_BUSINESS : includes
+    COMPANY ||--o{ COMPANY_BUSINESS : joins
+    COMPANY_BUSINESS ||--o{ PARTICIPATION : hosts
+    WORKER ||--o{ PARTICIPATION : participates
+    COMPANY_BUSINESS ||--o{ WORK_CASE : subject
+    PARTICIPATION o|--o{ WORK_CASE : optional_subject
+    POLICY_VERSION o|--o{ WORK_CASE : selected_policy
+    WORK_CASE ||--o{ CASE_DOCUMENT : uses
+    DOCUMENT ||--|{ DOCUMENT_VERSION : versions
+    DOCUMENT_VERSION ||--o{ CASE_DOCUMENT : evidence
+    FILE_ASSET ||--o{ DOCUMENT_VERSION : source
+    DOCUMENT_VERSION ||--o{ EXTRACTION_RUN : extracted
+    EXTRACTION_RUN o|--o{ CASE_DOCUMENT : selected_run
+    WORK_CASE ||--o{ FIELD_CORRECTION : reviewed_values
+    EXTRACTION_RUN ||--o{ FIELD_CORRECTION : corrected
+    WORK_CASE ||--o{ VALIDATION_RUN : checked
+    POLICY_VERSION ||--o{ VALIDATION_RUN : applied
+    VALIDATION_RUN ||--o{ VALIDATION_FINDING : findings
+    WORK_CASE ||--o{ REVIEW_DECISION : decisions
+    VALIDATION_RUN o|--o{ REVIEW_DECISION : optional_for_hold
+    WORK_CASE ||--o{ ACTIVITY : history
+    WORK_CASE ||--o| SUBSIDY_CLAIM : optional_claim
+    PARTICIPATION ||--o{ SUBSIDY_CLAIM : claims
+    SUBSIDY_CLAIM o|--o{ SUBSIDY_CALCULATION : calculated
+
+    WORKER {
+        string id PK
+        string name
+        string birth_date
+    }
+    COMPANY_BUSINESS {
+        string id PK
+        string company_id FK
+        string business_id FK
+    }
+    PARTICIPATION {
+        string id PK
+        string worker_id FK
+        string company_business_id FK
+        string business_id FK
+        int episode_no
+    }
+    WORK_CASE {
+        string id PK
+        string kind
+        string company_business_id FK
+        string participation_id FK
+        string policy_version_id FK
+        string status
+        int data_revision
+        int version
+    }
+    DOCUMENT_VERSION {
+        string id PK
+        string document_id FK
+        string original_asset_id FK
+        string scoped_asset_id FK
+        string document_type_code
+        int version_no
+    }
+    VALIDATION_RUN {
+        string id PK
+        string case_id FK
+        string policy_version_id FK
+        int case_data_revision
+        string input_hash
+        string verdict
+    }
+    REVIEW_DECISION {
+        string id PK
+        string case_id FK
+        string validation_run_id FK
+        string reviewer_user_id FK
+        string decision
+        string input_hash
+    }

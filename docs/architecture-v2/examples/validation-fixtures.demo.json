@@ -1,0 +1,117 @@
+{
+  "fixtureVersion": "0.1.0-spec",
+  "isSynthetic": true,
+  "executionStatus": "NOT_RUN",
+  "note": "expected는 명세상의 기대값이며 구현된 엔진의 실행 결과가 아니다. 실제 사업에서는 DRAFT/isDemo 정책 적용을 먼저 차단한다. 이 예시는 격리된 순수 규칙 단위테스트용이다.",
+  "cases": [
+    {
+      "id": "EX-01",
+      "description": "확인된 두 값이 일치",
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "leftCandidates": [
+        {
+          "value": "예시참여자A",
+          "verification": "CONFIRMED"
+        }
+      ],
+      "rightCandidates": [
+        {
+          "value": " 예시참여자A ",
+          "verification": "CONFIRMED"
+        }
+      ],
+      "expected": {
+        "ruleVerdict": "PASS",
+        "overallVerdict": "PASS",
+        "expectedCaseStatus": "REVIEW_REQUIRED",
+        "mayApproveRealCase": false
+      }
+    },
+    {
+      "id": "EX-02",
+      "description": "확인된 두 값이 불일치",
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "leftCandidates": [
+        {
+          "value": "예시참여자A",
+          "verification": "CONFIRMED"
+        }
+      ],
+      "rightCandidates": [
+        {
+          "value": "예시참여자B",
+          "verification": "CONFIRMED"
+        }
+      ],
+      "expected": {
+        "ruleVerdict": "FAIL",
+        "overallVerdict": "FAIL",
+        "expectedCaseStatus": "REVIEW_REQUIRED",
+        "mayApproveRealCase": false
+      }
+    },
+    {
+      "id": "EX-03",
+      "description": "오른쪽 값 판독 불가",
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "leftCandidates": [
+        {
+          "value": "예시참여자A",
+          "verification": "CONFIRMED"
+        }
+      ],
+      "rightCandidates": [
+        {
+          "value": null,
+          "verification": "UNCONFIRMED"
+        }
+      ],
+      "expected": {
+        "ruleVerdict": "INSUFFICIENT_DATA",
+        "overallVerdict": "INSUFFICIENT_DATA",
+        "expectedCaseStatus": "REVIEW_REQUIRED",
+        "mayApproveRealCase": false
+      }
+    },
+    {
+      "id": "EX-04",
+      "description": "계약서 후보가 둘이고 채택본을 확정하지 않음",
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "leftCandidates": [
+        {
+          "value": "예시참여자A",
+          "verification": "CONFIRMED"
+        }
+      ],
+      "rightCandidates": [
+        {
+          "value": "예시참여자A",
+          "verification": "UNCONFIRMED"
+        },
+        {
+          "value": "예시참여자B",
+          "verification": "UNCONFIRMED"
+        }
+      ],
+      "expected": {
+        "ruleVerdict": "NEEDS_REVIEW",
+        "overallVerdict": "NEEDS_REVIEW",
+        "expectedCaseStatus": "REVIEW_REQUIRED",
+        "mayApproveRealCase": false
+      }
+    },
+    {
+      "id": "EX-05",
+      "description": "비교 대상 서류 자체가 없음",
+      "caseKind": "PARTICIPANT_ELIGIBILITY",
+      "leftCandidates": [],
+      "rightCandidates": [],
+      "expected": {
+        "ruleVerdict": "INSUFFICIENT_DATA",
+        "overallVerdict": "INSUFFICIENT_DATA",
+        "expectedCaseStatus": "REVIEW_REQUIRED",
+        "mayApproveRealCase": false
+      }
+    }
+  ]
+}
