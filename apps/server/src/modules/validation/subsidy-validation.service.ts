@@ -8,10 +8,12 @@ import type {
   SubsidyLedgerFields,
   SubsidyRound,
   SubsidyValidationResult,
+  WorkerSubsidyValidationResult,
   SubsidyValidationStatus,
   WorkerSubsidyAmount,
 } from '@job-program/shared';
 import { Document } from '../documents/document.entity';
+import { effectiveDocumentData } from '../documents/document-data.util';
 import { CompaniesService } from '../companies/companies.service';
 import { BusinessesService } from '../businesses/businesses.service';
 import { RequiredDocumentsService } from '../required-documents/required-documents.service';
@@ -20,6 +22,7 @@ import { SubsidyCalculation } from '../subsidy/subsidy-calculation.entity';
 import { DomainValidationEngine } from './domain-validation.engine';
 import { ValidationRulesService } from './validation-rules.service';
 import { JudgmentHistoryService } from './judgment-history.service';
+import { deriveSubsidyNextActions } from './next-actions';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
 import type { ApproveSubsidyDto } from './dto/approve-subsidy.dto';
 
@@ -85,7 +88,7 @@ export class SubsidyValidationService {
       const code = doc.documentType as DocumentTypeCode | undefined;
       if (!code) continue;
       presentTypes.add(code);
-      const data = normalizeExtracted(doc.reviewedData ?? doc.extractedData);
+      const data = normalizeExtracted(effectiveDocumentData(doc));
       if (data) {
         companyByType[code] = data;
         analyzedTypes.add(code);
@@ -130,7 +133,7 @@ export class SubsidyValidationService {
         const code = doc.documentType as DocumentTypeCode | undefined;
         if (!code) continue;
         presentTypes.add(code);
-        const data = normalizeExtracted(doc.reviewedData ?? doc.extractedData);
+        const data = normalizeExtracted(effectiveDocumentData(doc));
         if (data) {
           workerByType[code] = data;
           analyzedTypes.add(code);
@@ -220,6 +223,8 @@ export class SubsidyValidationService {
       rules: allRules,
       mapped,
       judgedAt: new Date().toISOString(),
+      // 판정을 '담당자가 다음에 할 일'로 번역한다 (근로자 검증과 같은 층).
+      nextActions: deriveSubsidyNextActions({ documents, rules: allRules }),
     };
 
     if (persist && allRules.length > 0) {
@@ -235,6 +240,54 @@ export class SubsidyValidationService {
     }
 
     return result;
+  }
+
+  /**
+   * 근로자 1명 기준으로 지원금 검증 결과를 다시 묶는다.
+   *
+   * 왜 필요한가:
+   * 지원금 서류는 기업이 한 번에 내지만, 담당자가 실제로 처리하는 단위는 **근로자 1명**이다
+   * ("이 사람이 지원금을 받으려면 내가 뭘 해야 하나"). 기업 단위 결과만 보여주면
+   * 여러 근로자의 지적이 뒤섞여서 누구 때문에 막혔는지 구분이 안 된다.
+   *
+   * 기업 공통 규칙(R-301·305·308·309 등)은 **모든 근로자를 같이 막으므로** 함께 보여준다.
+   * 서류 미제출도 마찬가지로 기업 단위다.
+   */
+  async validateWorkerSubsidy(
+    businessId: string,
+    companyId: string,
+    workerId: string,
+  ): Promise<WorkerSubsidyValidationResult> {
+    const full = await this.validateCompanySubsidy(businessId, companyId, false);
+
+    const mine = full.mapped.workerSubsidies.find((w) => w.workerId === workerId);
+    if (!mine) {
+      throw new NotFoundException('이 기업의 지원금 산출내역에서 해당 근로자를 찾지 못했습니다.');
+    }
+
+    // 근로자 규칙 객체는 workerSubsidies[].rules 와 full.rules 가 같은 참조를 공유한다.
+    // 그 집합을 빼면 남는 것이 기업 공통 규칙이다.
+    const workerRuleRefs = new Set<RuleResult>();
+    for (const ws of full.mapped.workerSubsidies) for (const r of ws.rules) workerRuleRefs.add(r);
+    const companyRules = full.rules.filter((r) => !workerRuleRefs.has(r));
+
+    const scopedRules = [...companyRules, ...mine.rules];
+    const status = this.computeStatus(full.documents, scopedRules);
+
+    return {
+      workerId,
+      workerName: mine.workerName,
+      companyId,
+      businessId,
+      status,
+      documents: full.documents,
+      companyRules,
+      workerRules: mine.rules,
+      rounds: mine.rounds,
+      total: mine.total,
+      nextActions: deriveSubsidyNextActions({ documents: full.documents, rules: scopedRules }),
+      judgedAt: full.judgedAt,
+    };
   }
 
   /**

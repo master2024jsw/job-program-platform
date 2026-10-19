@@ -1,4 +1,12 @@
-import type { CompanyLedgerFields, CompanyValidationResult, JudgmentHistoryRecord, SubsidyValidationResult, WorkerLedgerFields, WorkerValidationResult } from '@job-program/shared';
+import type {
+  CompanyLedgerFields,
+  CompanyValidationResult,
+  JudgmentHistoryRecord,
+  SubsidyValidationResult,
+  WorkerLedgerFields,
+  WorkerSubsidyValidationResult,
+  WorkerValidationResult,
+} from '@job-program/shared';
 import { api } from './client';
 
 export const validationApi = {
@@ -29,6 +37,12 @@ export const validationApi = {
   /** 담당자 승인 → SubsidyCalculation 저장 + HUMAN 이력. */
   approveSubsidy: (companyId: string, businessId: string) =>
     api.post<SubsidyValidationResult>(`/validation/subsidy/${companyId}/approve`, { businessId, companyId }),
+
+  /** 근로자 1명 기준 지원금 검증 (참여자·지원금 탭). */
+  workerSubsidy: (companyId: string, workerId: string, businessId: string) =>
+    api.get<WorkerSubsidyValidationResult>(
+      `/validation/subsidy/${companyId}/worker/${workerId}?businessId=${encodeURIComponent(businessId)}`,
+    ),
 
   subsidyHistory: (companyId: string) => api.get<JudgmentHistoryRecord[]>(`/validation/subsidy/${companyId}/history`),
 };

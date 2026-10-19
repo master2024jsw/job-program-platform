@@ -9,8 +9,10 @@ import type {
   RequiredDocPresence,
   RuleResult,
 } from '@job-program/shared';
-import { RecruitStatus } from '@job-program/shared';
+import { CompanyStage, RecruitStatus } from '@job-program/shared';
 import { Document } from '../documents/document.entity';
+import { effectiveDocumentData } from '../documents/document-data.util';
+import { CompanyStageService } from '../companies/company-stage.service';
 import { CompaniesService } from '../companies/companies.service';
 import { BusinessesService } from '../businesses/businesses.service';
 import { RequiredDocumentsService } from '../required-documents/required-documents.service';
@@ -76,6 +78,7 @@ export class ValidationService {
     private readonly rulesService: ValidationRulesService,
     private readonly jobClassificationService: JobClassificationService,
     private readonly judgmentHistoryService: JudgmentHistoryService,
+    private readonly companyStageService: CompanyStageService,
   ) {}
 
   /**
@@ -100,7 +103,7 @@ export class ValidationService {
       const code = doc.documentType as DocumentTypeCode | undefined;
       if (!code) continue;
       presentTypes.add(code);
-      const data = normalizeExtracted(doc.reviewedData ?? doc.extractedData);
+      const data = normalizeExtracted(effectiveDocumentData(doc));
       if (data) {
         byType[code] = data;
         analyzedTypes.add(code);
@@ -249,8 +252,16 @@ export class ValidationService {
       corrected: true,
     });
 
-    // 검증 승인 → recruitStatus VERIFIED 상향
+    // 검증 승인 → recruitStatus VERIFIED 상향 (레거시 필드, 호환 위해 유지)
     await this.companiesService.upgradeRecruitStatus(companyId, RecruitStatus.VERIFIED);
+
+    // 통일된 단계: 기업 적격 확인이 끝나 이제 협약서를 보낼 수 있다.
+    await this.companyStageService.advanceTo(
+      companyId,
+      businessId,
+      CompanyStage.COMPANY_VERIFIED,
+      '기업 검증 승인',
+    );
 
     return result;
   }

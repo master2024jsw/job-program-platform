@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { ImportResultModal } from '../components/ImportResultModal';
 import { WorkerValidationPanel } from '../components/WorkerValidationPanel';
+import { ApiError } from '../api/client';
 
 const emptyForm: WorkerInput = {
   name: '',
@@ -48,6 +49,17 @@ const appStatusLabel: Record<ApplicationStatus, string> = {
   [ApplicationStatus.APPLICATION_COMPLETE]: '신청완료',
   [ApplicationStatus.SUBSIDY_GUIDANCE]: '지원금안내',
 };
+
+/**
+ * 아직 검증 승인을 받지 않은 근로자인가.
+ *
+ * 승인을 받아야 applicationStatus 가 신청완료로 바뀜고, 그때부터 지원금 안내 대상이 된다.
+ * 서류 분석만 끝내고 여기서 멈추면 지원금 안내에 영영 안 뜨는데, 화면에 그 신호가 없었다.
+ */
+function needsApproval(w: Worker): boolean {
+  if (!w.companyId) return false; // 소속 기업이 없으면 검증 자체를 못 돌린다
+  return !w.applicationStatus || w.applicationStatus === ApplicationStatus.UNDER_REVIEW;
+}
 
 const appStatusClass: Record<ApplicationStatus, string> = {
   [ApplicationStatus.UNDER_REVIEW]: 'badge-warning',
@@ -186,6 +198,21 @@ export function WorkersPage() {
       await workersApi.remove(worker.id);
       await load(keyword, companyFilter);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        if (!window.confirm(`${e.message}
+
+연결된 자료까지 모두 삭제할까요? 되돌릴 수 없습니다.`)) return;
+        try {
+          const r = await workersApi.remove(worker.id, true);
+          await load(keyword, companyFilter);
+          window.alert(
+            `'${worker.name}' 삭제 완료 — 참여기록 ${r.deletedParticipations}건, 지원금 신청 ${r.deletedClaims}건을 함께 삭제했습니다.`,
+          );
+        } catch (e2) {
+          window.alert(e2 instanceof Error ? e2.message : '삭제에 실패했습니다.');
+        }
+        return;
+      }
       window.alert(e instanceof Error ? e.message : '삭제에 실패했습니다.');
     }
   };
@@ -262,6 +289,31 @@ export function WorkersPage() {
 
       {error && <p className="error-text">{error}</p>}
 
+      {(() => {
+        // 승인만 남은 사람이 있으면 목록 위에 한 줄로 무엇을 하면 되는지 알린다.
+        const pendingApproval = workers.filter(needsApproval);
+        if (pendingApproval.length === 0) return null;
+        return (
+          <div
+            className="card"
+            style={{ padding: '0.7rem 0.9rem', marginBottom: '0.7rem', borderLeft: '3px solid #d97706' }}
+          >
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              검증 승인이 남은 근로자 {pendingApproval.length}명
+              <span className="hint-text" style={{ fontWeight: 400 }}>
+                {' — '}
+                {pendingApproval.map((w) => w.name).join(', ')}
+              </span>
+            </p>
+            <p className="hint-text" style={{ margin: '0.25rem 0 0' }}>
+              서류를 분석해도 지원금 안내에는 자동으로 올라가지 않습니다.
+              아래 표에서 「<strong>신청 검증</strong>」을 누르고, 걸린 항목을 확인한 뒤
+              「<strong>승인 → 대장 반영</strong>」을 누르세요. 그러면 지원금 안내 목록에 뜨는 것이 맞습니다.
+            </p>
+          </div>
+        );
+      })()}
+
       <div className="card">
         <table className="data-table">
           <thead>
@@ -302,12 +354,21 @@ export function WorkersPage() {
                       const age = calcAge(w.birthDate);
                       if (age === null) return <span className="badge badge-inactive">미확인</span>;
                       return age >= 60
-                        ? <span className="badge badge-active">적격</span>
+                        ? <span className="badge badge-active" title="나이만 본 결과입니다. 전체 적격은 「신청 검증」에서 확인하세요.">연령 적격</span>
                         : <span className="badge badge-failed">연령미달</span>;
                     })()}
                   </td>
                   <td>
-                    {w.applicationStatus ? (
+                    {needsApproval(w) ? (
+                      // 승인 전에 '재직'만 띄우면 다 끝난 것처럼 보여서,
+                      // 담당자가 지원금 안내에 안 뜨는 이유를 못 찾는다(2026-10-19 실제 문의).
+                      <span
+                        className="badge badge-warning"
+                        title="「신청 검증」에서 승인해야 지원금 안내 대상이 됩니다."
+                      >
+                        검증 승인 필요
+                      </span>
+                    ) : w.applicationStatus ? (
                       <span className={`badge ${appStatusClass[w.applicationStatus]}`}>
                         {appStatusLabel[w.applicationStatus]}
                       </span>

@@ -1,5 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import type { ApiResponse, CompanyValidationResult, JudgmentHistoryRecord, SubsidyValidationResult, WorkerValidationResult } from '@job-program/shared';
+import type {
+  ApiResponse,
+  CompanyValidationResult,
+  JudgmentHistoryRecord,
+  SubsidyValidationResult,
+  WorkerSubsidyValidationResult,
+  WorkerValidationResult,
+} from '@job-program/shared';
 import { ValidationService } from './validation.service';
 import { WorkerValidationService } from './worker-validation.service';
 import { SubsidyValidationService } from './subsidy-validation.service';
@@ -87,6 +94,21 @@ export class ValidationController {
   }
 
   /** 담당자 승인 → SubsidyCalculation 저장 + HUMAN 이력. */
+  /** 근로자 1명 기준 지원금 검증 — 참여자·지원금 탭에서 "이 사람이 받으려면 뭘 해야 하나"를 본다. */
+  @Get('subsidy/:companyId/worker/:workerId')
+  async workerSubsidy(
+    @Param('companyId') companyId: string,
+    @Param('workerId') workerId: string,
+    @Query('businessId') businessId: string,
+  ): Promise<ApiResponse<WorkerSubsidyValidationResult>> {
+    const data = await this.subsidyValidationService.validateWorkerSubsidy(
+      this.subsidyValidationService.assertBusinessId(businessId),
+      companyId,
+      workerId,
+    );
+    return { success: true, data };
+  }
+
   @Post('subsidy/:companyId/approve')
   async approveSubsidy(
     @Param('companyId') _companyId: string,

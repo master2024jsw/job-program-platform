@@ -11,6 +11,7 @@ import type {
 } from '@job-program/shared';
 import { ApplicationStatus, Gender } from '@job-program/shared';
 import { Document } from '../documents/document.entity';
+import { effectiveDocumentData } from '../documents/document-data.util';
 import { CompaniesService } from '../companies/companies.service';
 import { BusinessesService } from '../businesses/businesses.service';
 import { RequiredDocumentsService } from '../required-documents/required-documents.service';
@@ -19,6 +20,7 @@ import { CompanyBusiness } from '../companies/company-business.entity';
 import { DomainValidationEngine } from './domain-validation.engine';
 import { ValidationRulesService } from './validation-rules.service';
 import { JudgmentHistoryService } from './judgment-history.service';
+import { deriveWorkerNextActions } from './next-actions';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
 import type { ApproveWorkerDto } from './dto/approve-worker.dto';
 
@@ -111,7 +113,8 @@ export class WorkerValidationService {
       const code = doc.documentType as DocumentTypeCode | undefined;
       if (!code) continue;
       presentTypes.add(code);
-      const data = normalizeExtracted(doc.reviewedData ?? doc.extractedData);
+      // 빈 검토값이 추출값을 가리지 않게 한다 (documents/document-data.util.ts 참고).
+      const data = normalizeExtracted(effectiveDocumentData(doc));
       if (data) {
         byType[code] = data;
         analyzedTypes.add(code);
@@ -180,6 +183,15 @@ export class WorkerValidationService {
       rules,
       mapped,
       judgedAt: new Date().toISOString(),
+      // 판정을 '담당자가 다음에 할 일'로 번역한다. 규칙 결과에서 결정적으로 나오므로 AI가 개입하지 않는다.
+      nextActions: deriveWorkerNextActions({
+        status,
+        documents,
+        rules,
+        worker: worker
+          ? { name: worker.name, birthDate: worker.birthDate, hireDate: worker.hireDate }
+          : null,
+      }),
     };
 
     if (persist && rules.length > 0) {
@@ -283,11 +295,41 @@ export class WorkerValidationService {
     // 승인 후 재검증 및 HUMAN 이력
     const result = await this.validateWorker(dto.businessId, dto.companyId, workerId, false);
 
-    // 검증 COMPLETE → 신청단계를 '신청완료'로 자동 전환 (이미 더 앞선 단계면 유지)
-    if (result.status === 'COMPLETE') {
+    // 승인이 신청단계를 올릴 수 있는 상태인지 판단한다.
+    //
+    // 예전에는 COMPLETE 일 때만 올렸다. 그래서 NEEDS_REVIEW 인 근로자는 담당자가 승인을 눌러도
+    // 아무 일도 일어나지 않았고, 화면은 "승인 완료"라고 말해서 왜 지원금 안내에 안 뜨는지 알 수 없었다
+    // (2026-10-19 실제로 겪음 — 김영희, R-203 하나 때문에 NEEDS_REVIEW).
+    //
+    // NEEDS_REVIEW 는 애초에 "기계가 판단을 보류하고 사람에게 넘긴다"는 뜻이다(설계서 ADR-07).
+    // 사람이 보고 승인했다면 그게 결정이므로 넘어가야 한다. 다만 아래 둘은 사람도 넘길 수 없다:
+    //   RISK    — 규칙이 FAIL. 지침상 제외사유라 승인으로 덮을 수 없다.
+    //   MISSING — 필수서류가 아예 없다. 서류를 먼저 받아야 한다.
+    const blocked: Partial<Record<WorkerValidationStatus, string>> = {
+      RISK: '참여 제외 사유(FAIL 규칙)가 있어 승인할 수 없습니다. 「다음에 하실 일」의 근거를 확인하세요.',
+      MISSING: '필수서류가 제출·분석되지 않았습니다. 서류를 올리고 분석한 뒤 다시 승인하세요.',
+    };
+
+    const blockReason = blocked[result.status];
+    if (blockReason) {
+      result.approval = { applied: false, message: blockReason };
+    } else {
       const current = worker.applicationStatus;
       if (!current || current === ApplicationStatus.UNDER_REVIEW) {
         await this.workersService.update(workerId, { applicationStatus: ApplicationStatus.APPLICATION_COMPLETE });
+        result.approval = {
+          applied: true,
+          message:
+            result.status === 'NEEDS_REVIEW'
+              ? '확인필요 항목을 담당자가 확인한 것으로 보고 신청완료 처리했습니다. 지원금 안내 목록에 올라갑니다.'
+              : '신청완료로 전환했습니다. 지원금 안내 목록에 올라갑니다.',
+        };
+      } else {
+        // 이미 신청완료·지원금안내 단계 — 되돌리지 않는다.
+        result.approval = {
+          applied: false,
+          message: `이미 '${current}' 단계라 신청단계는 그대로 두고 대장 값만 반영했습니다.`,
+        };
       }
     }
 

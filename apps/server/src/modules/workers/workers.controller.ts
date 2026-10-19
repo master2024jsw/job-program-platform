@@ -101,8 +101,11 @@ export class WorkersController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<ApiResponse<null>> {
-    await this.workersService.remove(id);
-    return { success: true };
+  async remove(
+    @Param('id') id: string,
+    @Query('force') force?: string,
+  ): Promise<ApiResponse<{ deletedParticipations: number; deletedClaims: number }>> {
+    const result = await this.workersService.remove(id, force === 'true');
+    return { success: true, data: result };
   }
 }

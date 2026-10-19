@@ -7,6 +7,7 @@ import {
   type WorkerSubsidyAmount,
 } from '@job-program/shared';
 import { validationApi } from '../api/validation';
+import { NextActionList } from './NextActionList';
 
 function statusBadgeClass(status: string): string {
   if (status === 'COMPLETE') return 'badge-active';
@@ -197,6 +198,9 @@ export function SubsidyValidationPanel({ businessId, companyId }: { businessId: 
           재검증
         </button>
       </div>
+
+      {/* 판정을 행동으로 번역한 안내 — 가장 먼저 보이게 둔다 */}
+      <NextActionList actions={result.nextActions ?? []} />
 
       {/* STEP1: 서류 존재 */}
       <div className="card" style={{ padding: '0.85rem', marginBottom: '0.75rem' }}>

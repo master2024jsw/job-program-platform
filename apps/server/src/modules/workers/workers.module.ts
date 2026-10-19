@@ -7,9 +7,11 @@ import { SubsidyCalculation } from '../subsidy/subsidy-calculation.entity';
 import { WorkersService } from './workers.service';
 import { WorkersController } from './workers.controller';
 import { BusinessesModule } from '../businesses/businesses.module';
+import { Participation } from '../participations/participation.entity';
+import { SubsidyClaim } from '../subsidy/subsidy-claim.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Worker, Company, CompanyBusiness, SubsidyCalculation]), BusinessesModule],
+  imports: [TypeOrmModule.forFeature([Worker, Company, CompanyBusiness, SubsidyCalculation, Participation, SubsidyClaim]), BusinessesModule],
   controllers: [WorkersController],
   providers: [WorkersService],
   exports: [WorkersService],

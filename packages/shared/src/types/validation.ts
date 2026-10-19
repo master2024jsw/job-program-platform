@@ -126,6 +126,28 @@ export interface WorkerLedgerFields {
   resignDate: null;
 }
 
+/** 할일의 급함 정도. BLOCKER=이게 풀려야 대장 반영 가능 / REVIEW=사람이 확인 / READY=승인만 남음. */
+export type NextActionSeverity = 'BLOCKER' | 'REVIEW' | 'READY';
+
+/**
+ * 「다음에 담당자가 할 일」 한 건.
+ * 판정(무엇이 걸렸나)을 행동(어디서 뭘 고치면 무슨 일이 일어나나)으로 번역한 것.
+ */
+export interface NextAction {
+  /** 안정된 식별자 (화면 문구가 바뀌어도 유지 — 로그·집계용). */
+  code: string;
+  severity: NextActionSeverity;
+  /** 무엇이 걸렸나. 예: "성명 확인필요" */
+  subject: string;
+  /** 왜 걸렸나 — 판정 근거 문장. */
+  detail: string;
+  /** 어디서 고치나. 예: "근로자 DB 탭 → 수정 → 성명" */
+  where: string;
+  /** 고치면 무슨 일이 일어나나. 예: "승인 후 근로자 DB 업데이트 예정" */
+  then: string;
+  ruleId?: string;
+}
+
 export interface WorkerValidationResult {
   workerId: string;
   businessId: string;
@@ -134,6 +156,13 @@ export interface WorkerValidationResult {
   rules: RuleResult[];
   mapped: WorkerLedgerFields;
   judgedAt: string;
+  /** 담당자가 다음에 할 일 (판정에서 결정적으로 도출 — AI 아님). */
+  nextActions: NextAction[];
+  /**
+   * 승인을 눌렀을 때만 채워진다 — 신청단계가 실제로 올라갔는지와 그 이유.
+   * 올라가지 않았는데 "승인 완료"라고만 말하면 담당자가 왜 지원금 안내에 안 뜨는지 알 수 없다.
+   */
+  approval?: { applied: boolean; message: string };
 }
 
 // ──────────────────────────────────────────────
@@ -174,6 +203,31 @@ export interface SubsidyLedgerFields {
   workerSubsidies: WorkerSubsidyAmount[];
 }
 
+/**
+ * 근로자 1명 기준으로 묶은 지원금 검증 결과 (참여자·지원금 탭).
+ *
+ * 지원금 서류는 기업이 한 번에 내지만, 담당자가 처리하는 단위는 근로자 1명이다.
+ * 기업 공통 규칙은 모든 근로자를 같이 막으므로 `companyRules` 로 따로 구분해 함께 보여준다.
+ */
+export interface WorkerSubsidyValidationResult {
+  workerId: string;
+  workerName: string;
+  companyId: string;
+  businessId: string;
+  status: SubsidyValidationStatus;
+  /** 지원금 필수서류 (기업 단위 — 없으면 이 기업의 모든 근로자가 막힌다). */
+  documents: RequiredDocPresence[];
+  /** 기업 공통 규칙 (신청서·통장·총액 등). */
+  companyRules: RuleResult[];
+  /** 이 근로자에게만 해당하는 규칙 (산정 검산·급여 대조 등). */
+  workerRules: RuleResult[];
+  rounds: SubsidyRound[];
+  total: number;
+  /** 이 근로자가 지원금을 받기까지 담당자가 할 일. */
+  nextActions: NextAction[];
+  judgedAt: string;
+}
+
 export interface SubsidyValidationResult {
   companyId: string;
   businessId: string;
@@ -182,4 +236,6 @@ export interface SubsidyValidationResult {
   rules: RuleResult[];
   mapped: SubsidyLedgerFields;
   judgedAt: string;
+  /** 담당자가 다음에 할 일 (판정에서 결정적으로 도출 — AI 아님). */
+  nextActions: NextAction[];
 }

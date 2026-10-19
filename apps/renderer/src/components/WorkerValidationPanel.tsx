@@ -7,6 +7,8 @@ import {
   type RuleVerdict,
 } from '@job-program/shared';
 import { validationApi } from '../api/validation';
+import { NextActionList } from './NextActionList';
+
 
 function statusBadgeClass(status: string): string {
   if (status === 'COMPLETE') return 'badge-active';
@@ -39,10 +41,13 @@ export function WorkerValidationPanel({
   businessId,
   companyId,
   workerId,
+  onApproved,
 }: {
   businessId: string;
   companyId: string;
   workerId: string;
+  /** 승인이 끝난 뒤 부르는 것들을 새로고치고 싶을 때. */
+  onApproved?: () => void;
 }) {
   const [result, setResult] = useState<WorkerValidationResult | null>(null);
   const [form, setForm] = useState<EditableFields | null>(null);
@@ -85,8 +90,17 @@ export function WorkerValidationPanel({
     setApproving(true);
     setError(null);
     try {
-      applyResult(await validationApi.approveWorker(workerId, businessId, companyId, form));
-      window.alert('승인 완료: 근로자 대장(참여자관리)에 반영했습니다.');
+      const approved = await validationApi.approveWorker(workerId, businessId, companyId, form);
+      applyResult(approved);
+      // 신청단계가 실제로 올라갔는지 그대로 알린다.
+      // 전에는 무조건 "승인 완료"라고 해서, 상태가 그대로인데도 끝난 것처럼 보였다.
+      const info = approved.approval;
+      if (info && !info.applied) {
+        window.alert(`대장 값은 반영했지만 신청단계는 그대로입니다.${String.fromCharCode(10, 10)}${info.message}`);
+      } else {
+        window.alert(`승인 완료 — 근로자 대장에 반영했습니다.${String.fromCharCode(10, 10)}${info?.message ?? ''}`);
+      }
+      onApproved?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : '승인에 실패했습니다.');
     } finally {
@@ -111,6 +125,9 @@ export function WorkerValidationPanel({
           재검증
         </button>
       </div>
+
+      {/* 판정을 행동으로 번역한 안내 — 가장 먼저 보이게 둔다 */}
+      <NextActionList actions={result.nextActions ?? []} />
 
       {/* STEP1: 서류 존재 확인 */}
       <div className="card" style={{ padding: '0.85rem', marginBottom: '0.75rem' }}>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Like, Repository } from 'typeorm';
 import { ApplicationStatus, ContractType, Gender, WorkerStatus } from '@job-program/shared';
@@ -9,6 +9,8 @@ import { CompanyBusiness } from '../companies/company-business.entity';
 import { SubsidyCalculation } from '../subsidy/subsidy-calculation.entity';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
+import { Participation } from '../participations/participation.entity';
+import { SubsidyClaim } from '../subsidy/subsidy-claim.entity';
 
 const GENDER_LABEL: Record<Gender, string> = { [Gender.MALE]: '남', [Gender.FEMALE]: '여' };
 const GENDER_BY_LABEL: Record<string, Gender> = { 남: Gender.MALE, 여: Gender.FEMALE, MALE: Gender.MALE, FEMALE: Gender.FEMALE };
@@ -113,6 +115,10 @@ export class WorkersService {
     private readonly companyBusinessRepository: Repository<CompanyBusiness>,
     @InjectRepository(SubsidyCalculation)
     private readonly subsidyCalcRepository: Repository<SubsidyCalculation>,
+    @InjectRepository(Participation)
+    private readonly participationsRepository: Repository<Participation>,
+    @InjectRepository(SubsidyClaim)
+    private readonly subsidyClaimsRepository: Repository<SubsidyClaim>,
   ) {}
 
   create(dto: CreateWorkerDto): Promise<Worker> {
@@ -152,11 +158,39 @@ export class WorkersService {
     return this.workersRepository.save(worker);
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.workersRepository.delete(id);
-    if (result.affected === 0) {
+  /**
+   * 근로자 삭제.
+   *
+   * 참여기록이 있으면 막고, 무엇이 막는지 알려준다. force=true 면 함께 지운다.
+   * (설계서 §8.2 #6 — 근거 자료를 일반 삭제로 조용히 없애지 않는다)
+   */
+  async remove(id: string, force = false): Promise<{ deletedParticipations: number; deletedClaims: number }> {
+    const worker = await this.workersRepository.findOne({ where: { id } });
+    if (!worker) {
       throw new NotFoundException(`근로자(id=${id})를 찾을 수 없습니다.`);
     }
+
+    const participations = await this.participationsRepository.find({ where: { workerId: id } });
+    const partIds = participations.map((p) => p.id);
+    const claims = partIds.length
+      ? await this.subsidyClaimsRepository.find({ where: { participationId: In(partIds) } })
+      : [];
+
+    if (!force && (participations.length > 0 || claims.length > 0)) {
+      const parts: string[] = [];
+      if (participations.length) parts.push(`사업 참여기록 ${participations.length}건`);
+      if (claims.length) parts.push(`지원금 신청 ${claims.length}건`);
+      throw new ConflictException(
+        `'${worker.name}'에 연결된 ${parts.join(', ')}이(가) 있어 삭제할 수 없습니다. ` +
+          `함께 삭제하려면 '연결된 자료까지 삭제'를 선택하세요.`,
+      );
+    }
+
+    if (claims.length) await this.subsidyClaimsRepository.remove(claims);
+    if (participations.length) await this.participationsRepository.remove(participations);
+
+    await this.workersRepository.delete(id);
+    return { deletedParticipations: participations.length, deletedClaims: claims.length };
   }
 
   async exportToExcel(): Promise<Buffer> {

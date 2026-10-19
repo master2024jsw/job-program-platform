@@ -14,7 +14,11 @@ export const workersApi = {
   },
   create: (dto: Partial<WorkerInput>) => api.post<Worker>('/workers', dto),
   update: (id: string, dto: Partial<WorkerInput>) => api.patch<Worker>(`/workers/${id}`, dto),
-  remove: (id: string) => api.delete<null>(`/workers/${id}`),
+  /** force=true 면 연결된 참여기록·지원금신청까지 함께 지운다. */
+  remove: (id: string, force = false) =>
+    api.delete<{ deletedParticipations: number; deletedClaims: number }>(
+      `/workers/${id}${force ? '?force=true' : ''}`,
+    ),
   exportExcel: () => downloadFile('/workers/export', 'workers.xlsx'),
   importExcel: (file: File, businessId?: string) => {
     const form = new FormData();
