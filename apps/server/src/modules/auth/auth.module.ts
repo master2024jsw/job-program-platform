@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { Institution } from './institution.entity';
 import { User } from './user.entity';
 import { AuthService } from './auth.service';
+import { DevSeedService } from './dev-seed.service';
 import { AuthController } from './auth.controller';
 import { SessionAuthGuard } from './session-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -15,6 +16,7 @@ import { BusinessAccessGuard } from '../../common/business-access.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
+    DevSeedService,
     { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: BusinessAccessGuard },

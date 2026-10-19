@@ -9,6 +9,11 @@
   ],
   "scripts": {
     "dev": "concurrently -k -n RENDERER,DESKTOP -c green,magenta \"npm:dev:renderer\" \"npm:dev:desktop\"",
+    "dev:web": "concurrently -k -n SERVER,RENDERER -c cyan,green \"npm:dev:server\" \"npm:dev:renderer\"",
+    "restart": "powershell -ExecutionPolicy Bypass -File scripts/restart.ps1",
+    "restart:web": "powershell -ExecutionPolicy Bypass -File scripts/restart.ps1 -Web",
+    "restart:server": "powershell -ExecutionPolicy Bypass -File scripts/restart.ps1 -ServerOnly",
+    "stop": "powershell -ExecutionPolicy Bypass -File scripts/restart.ps1 -NoStart",
     "dev:server": "npm run start:dev -w apps/server",
     "dev:renderer": "npm run dev -w apps/renderer",
     "dev:desktop": "wait-on http://localhost:5173 && npm run dev -w apps/desktop",
@@ -16,13 +21,18 @@
     "build:server": "npm run build -w apps/server",
     "build:renderer": "npm run build -w apps/renderer",
     "build:desktop": "npm run build -w apps/desktop",
-    "package": "npm run build && npm run package -w apps/desktop",
-    "update:local": "powershell -ExecutionPolicy Bypass -File scripts/update-local.ps1",
-    "update:local:run": "powershell -ExecutionPolicy Bypass -File scripts/update-local.ps1 -Run",
-    "update:local:full": "powershell -ExecutionPolicy Bypass -File scripts/update-local.ps1 -Full -Run",
+    "package": "npm run check:release && npm run build && npm run package -w apps/desktop",
+    "update:local": "npm run check:release && powershell -ExecutionPolicy Bypass -File scripts/update-local.ps1",
+    "update:local:run": "npm run check:release && powershell -ExecutionPolicy Bypass -File scripts/update-local.ps1 -Run",
+    "update:local:full": "npm run check:release && powershell -ExecutionPolicy Bypass -File scripts/update-local.ps1 -Full -Run",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "reset:documents": "node apps/server/scripts/reset-documents.mjs"
+    "reset:documents": "node apps/server/scripts/reset-documents.mjs",
+    "reset:test": "node apps/server/scripts/reset-test-data.mjs",
+    "reset:test:apply": "node apps/server/scripts/reset-test-data.mjs --apply",
+    "reset:test:all": "node apps/server/scripts/reset-test-data.mjs --apply --files",
+    "sample:docs": "electron apps/server/scripts/generate-sample-docs.mjs",
+    "check:release": "node scripts/check-release.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
@@ -39,9 +49,9 @@
     "winax@3.6.9": true,
     "@google/genai@2.12.0": true,
     "@nestjs/core@10.4.22": true,
-    "better-sqlite3@11.10.0": true,
     "electron@32.3.3": true,
     "esbuild@0.21.5": true,
-    "protobufjs@7.6.5": true
+    "protobufjs@7.6.5": true,
+    "better-sqlite3@12.11.1": true
   }
 }

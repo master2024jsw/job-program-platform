@@ -15,6 +15,7 @@ import {
   type FolderMapping,
   type PathContext,
 } from './document-path.util';
+import { resolveDataDir } from '../../common/data-dir';
 
 const MAPPING_PATH = path.join(process.cwd(), 'resources', 'document-folder-mapping.json');
 const PATH_WARN_THRESHOLD = 240;
@@ -35,7 +36,7 @@ export class FileRouterService {
     private readonly documentsRepository: Repository<Document>,
   ) {
     this.mapping = JSON.parse(fs.readFileSync(MAPPING_PATH, 'utf-8')) as FolderMapping;
-    this.dataDir = path.join(process.cwd(), 'data');
+    this.dataDir = resolveDataDir();
   }
 
   async relocate(document: Document): Promise<Document> {

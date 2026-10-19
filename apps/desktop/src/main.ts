@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as net from 'net';
 import { spawn, ChildProcess, exec } from 'child_process';
+import { resolveDataDir } from './data-dir';
 
 const isDev = !app.isPackaged;
 let serverProcess: ChildProcess | null = null;
@@ -63,7 +64,9 @@ async function startServer(): Promise<void> {
   await killPort3000();
   await new Promise<void>((r) => setTimeout(r, 300));
 
-  const dataDir = path.join(app.getPath('userData'), 'data');
+  // app.getPath('userData') 는 앱 이름(name/productName)에 따라 달라짐다.
+  // 개발과 배포가 같은 DB 를 여도록 고정 경로 한 곳만 쓴다 (설계서 16.3).
+  const dataDir = resolveDataDir();
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
   const serverEnv: NodeJS.ProcessEnv = {

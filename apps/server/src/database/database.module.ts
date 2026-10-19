@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import * as path from 'path';
+import { resolveDbPath } from '../common/data-dir';
 
 @Module({
   imports: [
@@ -10,7 +10,8 @@ import * as path from 'path';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'better-sqlite3',
-        database: config.get<string>('DB_PATH') ?? path.join(process.cwd(), 'data', 'job-program.sqlite'),
+        // 경로는 common/data-dir.ts 한 곳에서만 정한다 (설계서 §16.3).
+        database: resolveDbPath(),
         autoLoadEntities: true,
         synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),

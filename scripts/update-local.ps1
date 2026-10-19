@@ -74,6 +74,18 @@ try {
 
     Step "포터블 폴더 통째로 갱신: $Portable"
     if (-not (Test-Path $Unpacked)) { throw "win-unpacked 가 없습니다: $Unpacked" }
+    # 설치 폴더 안에 업무자료가 남아 있으면 지우기 전에 구해낸다.
+    # 예전에는 서류가 resources\server\data 에 저장되어 이 줄에서 통째로 삭제됐다.
+    # 지금은 DATA_DIR 가 %APPDATA%\잡도리AI\data 로 밖에 나가 있지만,
+    # 예전 배포본이 남긴 자료를 지우지 않도록 방어한다.
+    $legacyData = Join-Path $Portable 'resources\server\data'
+    if (Test-Path $legacyData) {
+      $rescue = Join-Path $env:APPDATA ('잡도리AI\data\_설치폴더에서구한자료_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
+      Step "설치 폴더에서 업무자료 발견 — 구해내는 중: $rescue"
+      New-Item -ItemType Directory -Path $rescue -Force | Out-Null
+      Copy-Item (Join-Path $legacyData '*') $rescue -Recurse -Force -ErrorAction SilentlyContinue
+      Ok '구해내기 완료 (지우지 않았습니다)'
+    }
     if (Test-Path $Portable) { Remove-Item $Portable -Recurse -Force }
     New-Item -ItemType Directory -Path $Portable -Force | Out-Null
     Copy-Item (Join-Path $Unpacked '*') $Portable -Recurse -Force
