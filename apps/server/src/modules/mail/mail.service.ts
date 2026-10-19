@@ -11,6 +11,7 @@ import { Company } from '../companies/company.entity';
 import { Worker } from '../workers/worker.entity';
 import { Business } from '../businesses/business.entity';
 import { Institution } from '../auth/institution.entity';
+import { CompanyStageService } from '../companies/company-stage.service';
 
 function renderTemplate(text: string, variables: Record<string, string>): string {
   return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key) =>
@@ -54,6 +55,7 @@ export class MailService {
     private readonly businessesRepository: Repository<Business>,
     @InjectRepository(Institution)
     private readonly institutionsRepository: Repository<Institution>,
+    private readonly companyStageService: CompanyStageService,
   ) {}
 
   /** 발송자(from)를 결정한다. 발송자명은 사업의 운영기관명을 사용하고, 주소는 MAIL_FROM(또는 SMTP_USER)에서 가져온다. */
@@ -191,7 +193,42 @@ export class MailService {
       }
       results.push(await this.mailLogsRepository.save(log));
     }
+
+    await this.advanceStageAfterSend(dto, templateId, results);
     return results;
+  }
+
+  /**
+   * 템플릿에 '이 메일을 보내면 ×× 단계로' 가 지정돼 있으면 기업 단계를 올린다.
+   * - 지정이 없으면(독촉 메일 등) 아무것도 하지 않는다.
+   * - 한 건이라도 실제로 발송에 성공했을 때만 올린다. 전부 실패했는데 단계가 오르면 안 된다.
+   * - 어느 기업인지 알 수 없는 발송(수동 주소 입력)은 건너뛴다. 추측해서 올리지 않는다.
+   * - 단계 변경 실패가 메일 발송을 실패로 만들지 않는다 (기존 방어적 패턴).
+   */
+  private async advanceStageAfterSend(
+    dto: SendMailDto,
+    templateId: string | null | undefined,
+    results: MailLog[],
+  ): Promise<void> {
+    try {
+      if (!templateId || !dto.companyId || !dto.businessId) return;
+      if (!results.some((r) => r.status === MailLogStatus.SUCCESS)) return;
+
+      const template = await this.mailTemplatesService.findOne(templateId);
+      const target = template?.advanceToStage;
+      if (!target) return;
+
+      await this.companyStageService.advanceTo(
+        dto.companyId,
+        dto.businessId,
+        target,
+        `메일 발송: ${template?.name ?? '템플릿'}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `메일 발송 후 단계 상향 실패 (메일은 정상 발송됨): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   findLogs(businessId?: string): Promise<MailLog[]> {

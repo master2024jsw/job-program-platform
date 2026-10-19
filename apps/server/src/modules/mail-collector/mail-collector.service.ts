@@ -11,8 +11,9 @@ import { Company } from '../companies/company.entity';
 import { CompanyBusiness } from '../companies/company-business.entity';
 import { Worker } from '../workers/worker.entity';
 import { DocumentsService } from '../documents/documents.service';
+import { resolveDataDir } from '../../common/data-dir';
 
-const inboxDir = path.join(process.cwd(), 'data', '_inbox');
+const inboxDir = path.join(resolveDataDir(), '_inbox');
 
 export interface CollectSummary {
   messagesProcessed: number;

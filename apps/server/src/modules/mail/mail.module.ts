@@ -12,13 +12,16 @@ import { Worker } from '../workers/worker.entity';
 import { Business } from '../businesses/business.entity';
 import { Institution } from '../auth/institution.entity';
 import { BusinessesModule } from '../businesses/businesses.module';
+import { CompaniesModule } from '../companies/companies.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailTemplate, MailTemplateAttachment, MailLog, Company, Worker, Business, Institution]),
+    CompaniesModule,
     BusinessesModule,
   ],
   controllers: [MailTemplatesController, MailController],
   providers: [MailTemplatesService, MailService],
+  exports: [MailService, MailTemplatesService],
 })
 export class MailModule {}

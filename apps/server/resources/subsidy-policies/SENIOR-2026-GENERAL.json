@@ -1,0 +1,81 @@
+{
+  "policyId": "SENIOR-2026-GENERAL",
+  "typeCode": "SENIOR",
+  "participationType": "GENERAL",
+  "participationTypeLabel": "일반형",
+  "guidelineYear": 2026,
+  "version": "1.0.0",
+  "status": "PUBLISHED",
+  "source": "현장실습 훈련 지원사업 지원내용 표 (사용자 제공, 2026-10-15) — 일반형 행",
+  "sourceNote": "표에 적힌 값만 옮겼다. 표에 없는 것은 unspecified 에 적고 비워 둔다. 임의로 채우지 않는다 (설계서 §10.1, §21).",
+
+  "perPersonTotalCapWon": 2700000,
+  "operatorSubsidyPerPersonWon": 300000,
+  "operatorSubsidyNote": "수행기관(운영기관) 지원금. 참여기업 지원금과 별개이며 이 계산기의 대상이 아니다.",
+
+  "benefits": [
+    {
+      "benefitType": "INTERN",
+      "label": "인턴 지원금",
+      "rateOfMonthlySalary": 0.5,
+      "monthlyCapWon": 400000,
+      "maxRounds": 3,
+      "roundUnit": "MONTH",
+      "anchorField": "hireDate",
+      "anchorLabel": "입사일",
+      "conditionText": "입사일로부터 3개월간 1인당 월 급여의 50% 지원 (월 최대 40만원 한도 내, 최대 3개월)"
+    },
+    {
+      "benefitType": "HIRE",
+      "label": "채용 지원금",
+      "rateOfMonthlySalary": 0.5,
+      "monthlyCapWon": 500000,
+      "maxRounds": 3,
+      "roundUnit": "MONTH",
+      "anchorField": "continuousHireDate",
+      "anchorLabel": "계속고용 개시일",
+      "requires": {
+        "internCompleted": true,
+        "continuousContractMinMonths": 6
+      },
+      "conditionText": "인턴종료 후 6개월 이상 계속고용계약 체결 시, 3개월간 1인당 월 급여의 50% 지원 (월 최대 50만원 한도 내, 최대 3개월)"
+    }
+  ],
+
+  "checksum": {
+    "internMaxTotal": 1200000,
+    "hireMaxTotal": 1500000,
+    "sum": 2700000,
+    "note": "40만x3 + 50만x3 = 270만. 표의 '1인당 최대 270만원 지원'과 일치함을 확인했다."
+  },
+
+  "proRata": {
+    "enabled": true,
+    "divisorDays": 30,
+    "capIsProRated": false,
+    "source": "사용자(실무 담당) 확인, 2026-10-15 — '일할로 지급한다. 다만 일할금액이 80만원을 넘으면 그냥 40만원으로 지급한다.'",
+    "formula": "일할급여 = min(월급여 / 30 x 해당일수, 월급여);  지원금 = min(일할급여 x 50%, 월상한)",
+    "note": "월상한은 일할하지 않는다(capIsProRated=false). 그래서 일할급여가 월상한/지급률(=80만원)을 넘으면 월상한 그대로 지급된다. 이 80만원은 별도 기준값이 아니라 위 식에서 자동으로 나오는 분기점이다."
+  },
+
+  "unspecified": [
+    {
+      "id": "U-02",
+      "question": "'6개월 이상 계속고용계약'을 무엇으로 확인하는가?",
+      "why": "현재 자료에 계약기간(종료일 또는 개월수) 필드가 없다. continuousHireDate 뿐이다.",
+      "handling": "계약기간을 확인할 수 없으면 NEEDS_REVIEW. 체결 사실만으로 자동 충족 처리하지 않는다."
+    },
+    {
+      "id": "U-03",
+      "question": "'월 급여'는 기본급인가 총지급액인가?",
+      "why": "표에 정의가 없다. 검증규칙 R-306 은 '명세서 기본급 ≥ 근로계약서 월급여'를 보므로 기본급 기준으로 보이나 확정되지 않았다.",
+      "handling": "근로계약서의 월급여(baseSalary)를 입력으로 쓰되, 산정 결과에 어느 값을 썼는지 근거로 남긴다."
+    },
+    {
+      "id": "U-04",
+      "question": "지원금 신청 기한(지원기준일 이후 N개월 이내 등)이 일반형에도 있는가?",
+      "why": "표에서 기한 조건은 장기취업유지형 행에만 적혀 있다.",
+      "handling": "일반형에는 기한 규칙을 넣지 않는다. 확인되면 추가한다."
+    }
+  ]
+}

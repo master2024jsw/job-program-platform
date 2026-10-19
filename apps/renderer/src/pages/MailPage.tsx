@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MailLogStatus, RecruitStatus, type CompanyRow, type MailAttachmentMeta, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
+import { COMPANY_STAGES, COMPANY_STAGE_LABEL, CompanyStage, MailLogStatus, type CompanyRow, type MailAttachmentMeta, type MailLog, type MailTemplate, type Worker } from '@job-program/shared';
 import { mailApi, mailTemplatesApi, type CollectSummary, type MailTemplateInput } from '../api/mail';
 import { companiesApi } from '../api/companies';
 import { workersApi } from '../api/workers';
@@ -164,12 +164,9 @@ function CollectPanel() {
   );
 }
 
-const STAGE_FILTERS: { label: string; value: RecruitStatus | 'all' }[] = [
+const STAGE_FILTERS: { label: string; value: CompanyStage | 'all' }[] = [
   { label: '전체', value: 'all' },
-  { label: '모집대상', value: RecruitStatus.PROSPECT },
-  { label: '안내발송', value: RecruitStatus.CONTACTED },
-  { label: '신청접수', value: RecruitStatus.APPLIED },
-  { label: '검증완료', value: RecruitStatus.VERIFIED },
+  ...COMPANY_STAGES.map((st) => ({ label: COMPANY_STAGE_LABEL[st], value: st })),
 ];
 
 function SendMailPanel({
@@ -186,7 +183,7 @@ function SendMailPanel({
   const [mode, setMode] = useState<'company' | 'worker' | 'manual'>('company');
 
   // 기업 일괄 발송 상태
-  const [stageFilter, setStageFilter] = useState<RecruitStatus | 'all'>('all');
+  const [stageFilter, setStageFilter] = useState<CompanyStage | 'all'>('all');
   const [keyword, setKeyword] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -206,7 +203,7 @@ function SendMailPanel({
 
   // 단계 + 검색어 필터 후 가나다순 정렬
   const filteredCompanies = useMemo(() => {
-    let list = stageFilter === 'all' ? companies : companies.filter((c) => c.recruitStatus === stageFilter);
+    let list = stageFilter === 'all' ? companies : companies.filter((c) => c.stage === stageFilter);
     if (keyword.trim()) list = list.filter((c) => c.name.includes(keyword.trim()));
     return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }, [companies, stageFilter, keyword]);
@@ -217,7 +214,7 @@ function SendMailPanel({
     setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const selectAll = () => setSelectedIds(new Set(filteredCompanies.filter((c) => c.email).map((c) => c.id)));
   const clearAll = () => setSelectedIds(new Set());
-  const changeStage = (v: RecruitStatus | 'all') => { setStageFilter(v); setSelectedIds(new Set()); };
+  const changeStage = (v: CompanyStage | 'all') => { setStageFilter(v); setSelectedIds(new Set()); };
 
   const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
   const variableKeys = useMemo(() => {

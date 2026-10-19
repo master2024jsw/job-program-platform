@@ -1,9 +1,15 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import type { ApiResponse } from '@job-program/shared';
-import { SubsidyService, type SubsidyEligibilityRow, type SubsidyCalculationRow } from './subsidy.service';
+import {
+  SubsidyService,
+  type SubsidyEligibilityRow,
+  type SubsidyPendingRow,
+  type SubsidyCalculationRow,
+} from './subsidy.service';
 import { SubsidySetting } from './subsidy-setting.entity';
 import { UpdateSubsidySettingsDto } from './dto/update-subsidy-settings.dto';
 import { CreateSubsidyCalculationDto } from './dto/create-subsidy-calculation.dto';
+import { SendGuidanceDto } from './dto/send-guidance.dto';
 
 @Controller('subsidy')
 export class SubsidyController {
@@ -21,9 +27,26 @@ export class SubsidyController {
     return { success: true, data: settings };
   }
 
+  @Post('guidance/send')
+  async sendGuidance(
+    @Body() dto: SendGuidanceDto,
+  ): Promise<ApiResponse<Awaited<ReturnType<SubsidyService['sendGuidance']>>>> {
+    const data = await this.subsidyService.sendGuidance(dto.businessId, dto.templateId, dto.workerIds);
+    return { success: true, data };
+  }
+
   @Get('eligibility')
   async listEligibility(@Query('businessId') businessId: string): Promise<ApiResponse<SubsidyEligibilityRow[]>> {
     const rows = await this.subsidyService.listEligibility(businessId);
+    return { success: true, data: rows };
+  }
+
+  /** 아직 안내 대상이 아닌 근로자와 그 이유 — 화면에서 사라지지 않게 따로 내려준다. */
+  @Get('eligibility/pending')
+  async listPendingEligibility(
+    @Query('businessId') businessId: string,
+  ): Promise<ApiResponse<SubsidyPendingRow[]>> {
+    const rows = await this.subsidyService.listPendingEligibility(businessId);
     return { success: true, data: rows };
   }
 

@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { Company, MailTemplate, Worker } from '@job-program/shared';
-import { subsidyApi, type SubsidyEligibilityRow, type SubsidyCalculationRow } from '../api/subsidy';
+import {
+  subsidyApi,
+  type SubsidyEligibilityRow,
+  type SubsidyPendingRow,
+  type SubsidyCalculationRow,
+} from '../api/subsidy';
 import { mailApi, mailTemplatesApi } from '../api/mail';
 import { workersApi } from '../api/workers';
 import { companiesApi } from '../api/companies';
 import { useAuth } from '../auth/AuthContext';
 import { SubsidyValidationPanel } from '../components/SubsidyValidationPanel';
+import { WorkerValidationPanel } from '../components/WorkerValidationPanel';
+import { Modal } from '../components/Modal';
 
 type SubTab = 'eligibility' | 'calculation' | 'validation';
 
@@ -45,6 +52,8 @@ export function SubsidyPage() {
 function EligibilityPanel() {
   const { currentBusinessId } = useAuth();
   const [rows, setRows] = useState<SubsidyEligibilityRow[]>([]);
+  // 안내 대상이 아닌 근로자. 걸러서 안 보이게 하면 "DB엔 있는데 여길 왜 없지?"에서 막힌다.
+  const [pending, setPending] = useState<SubsidyPendingRow[]>([]);
   const [monthsInput, setMonthsInput] = useState('3');
   const [savingSettings, setSavingSettings] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -59,12 +68,14 @@ function EligibilityPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [settings, eligibility] = await Promise.all([
+      const [settings, eligibility, pendingRows] = await Promise.all([
         subsidyApi.getSettings(currentBusinessId),
         subsidyApi.listEligibility(currentBusinessId),
+        subsidyApi.listPendingEligibility(currentBusinessId),
       ]);
       setMonthsInput(String(settings.eligibilityMonths));
       setRows(eligibility);
+      setPending(pendingRows);
     } catch (e) {
       setError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다.');
     } finally {
@@ -106,7 +117,8 @@ function EligibilityPanel() {
   };
 
   const selectEligible = () => {
-    setSelected(new Set(rows.filter((r) => r.eligible && r.workerEmail).map((r) => r.workerId)));
+    // 안내 메일은 기업으로 가므로 기업 이메일이 있는 사람만 고른다.
+    setSelected(new Set(rows.filter((r) => r.eligible && r.companyEmail).map((r) => r.workerId)));
   };
 
   const handleBulkSend = async () => {
@@ -123,40 +135,42 @@ function EligibilityPanel() {
       window.alert('발송 대상을 선택하세요.');
       return;
     }
+
+    // 지원금 서류는 기업이 제출하므로 기업 메일로 간다. 같은 기업이면 한 통으로 묶인다.
+    const companies = [...new Set(targets.map((r) => r.companyName ?? '(소속 없음)'))];
+    const confirmMsg = [
+      `선택한 ${targets.length}명을 ${companies.length}개 기업으로 묶어 안내 메일을 보냅니다.`,
+      '수신자는 각 기업의 담당 메일 주소입니다.',
+      '',
+      ...companies.map((c) => `· ${c}`),
+    ].join('\n');
+    if (!window.confirm(confirmMsg)) return;
+
     setSending(true);
-    let success = 0;
-    let fail = 0;
-    const failMessages: string[] = [];
-    for (const row of targets) {
-      try {
-        const logs = await mailApi.send({
-          businessId: currentBusinessId,
-          workerId: row.workerId,
-          templateId,
-          variables: {
-            workerName: row.workerName,
-            companyName: row.companyName ?? '',
-            hireDate: row.hireDate,
-            eligibleDate: row.eligibleDate,
-          },
-        });
-        const failedLog = logs.find((log) => log.status !== 'SUCCESS');
-        if (failedLog) {
-          fail++;
-          failMessages.push(`${row.workerName}: ${failedLog.errorMessage ?? '발송 실패'}`);
-        } else {
-          success++;
-        }
-      } catch (e) {
-        fail++;
-        failMessages.push(`${row.workerName}: ${e instanceof Error ? e.message : String(e)}`);
+    try {
+      const r = await subsidyApi.sendGuidance(
+        currentBusinessId,
+        templateId,
+        targets.map((t) => t.workerId),
+      );
+      const lines: string[] = [];
+      if (r.sent.length) {
+        lines.push('발송 완료:');
+        for (const x of r.sent) lines.push(`  ${x.companyName} (${x.to}) — ${x.workerNames.join(', ')}`);
       }
+      if (r.skipped.length) {
+        lines.push('');
+        lines.push('보내지 못함:');
+        for (const x of r.skipped) lines.push(`  ${x.companyName} — ${x.reason} (${x.workerNames.join(', ')})`);
+      }
+      window.alert(lines.join('\n') || '발송 대상이 없습니다.');
+      setSelected(new Set());
+      await load();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '발송에 실패했습니다.');
+    } finally {
+      setSending(false);
     }
-    setSending(false);
-    window.alert(
-      `발송 완료: 성공 ${success}건 / 실패 ${fail}건` + (failMessages.length ? `\n${failMessages.join('\n')}` : ''),
-    );
-    setSelected(new Set());
   };
 
   return (
@@ -197,7 +211,8 @@ function EligibilityPanel() {
             신청가능 대상 전체 선택
           </button>
           <span className="hint-text">
-            사용 가능 변수: {'{{workerName}}'} {'{{companyName}}'} {'{{hireDate}}'} {'{{eligibleDate}}'}
+            사용 가능 변수: {'{{companyName}}'} {'{{workerName}}'} {'{{workerCount}}'} {'{{workerList}}'}{' '}
+            {'{{hireDate}}'} {'{{eligibleDate}}'} — 한 기업에 여러 명이면 {'{{workerList}}'} 에 명단이 줄별로 들어갑니다.
           </span>
         </div>
         <button className="btn btn-primary" disabled={sending} onClick={handleBulkSend}>
@@ -217,7 +232,7 @@ function EligibilityPanel() {
               <th>입사일</th>
               <th>신청가능일</th>
               <th>상태</th>
-              <th>이메일</th>
+              <th>받는 곳 (기업 메일)</th>
             </tr>
           </thead>
           <tbody>
@@ -228,7 +243,10 @@ function EligibilityPanel() {
             )}
             {!loading && rows.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={7}>입사일이 등록된 근로자가 없습니다.</td>
+                <td colSpan={7}>
+                  안내 대상인 근로자가 없습니다.
+                  {pending.length > 0 && ` 아래 「아직 안내 대상이 아닌 근로자」 ${pending.length}명을 확인하세요.`}
+                </td>
               </tr>
             )}
             {!loading &&
@@ -237,7 +255,7 @@ function EligibilityPanel() {
                   <td>
                     <input
                       type="checkbox"
-                      disabled={!r.workerEmail}
+                      disabled={!r.companyEmail}
                       checked={selected.has(r.workerId)}
                       onChange={() => toggleSelected(r.workerId)}
                     />
@@ -251,12 +269,90 @@ function EligibilityPanel() {
                       {r.eligible ? '신청가능' : `D-${r.daysUntilEligible}`}
                     </span>
                   </td>
-                  <td>{r.workerEmail ?? '(이메일 없음)'}</td>
+                  <td>
+                    {r.companyEmail ?? <span className="hint-text">기업 이메일 없음</span>}
+                    {r.guidanceSent && <span className="badge badge-info">안내완료</span>}
+                  </td>
                 </tr>
               ))}
           </tbody>
         </table>
       </div>
+
+      <PendingList rows={pending} onChanged={load} />
+    </div>
+  );
+}
+
+/**
+ * 아직 안내 대상이 아닌 근로자.
+ *
+ * 예전에는 조건에 안 맞으면 목록에서 그냥 사라졌다. 그러면 담당자는
+ * "근로자 DB에는 있는데 지원금 안내에는 왜 없지?"에서 막힌다(2026-10-19 실제 질문).
+ * 사라지게 두지 말고 **왜 아닌지와 무엇을 하면 되는지**를 같이 보여준다.
+ */
+function PendingList({ rows, onChanged }: { rows: SubsidyPendingRow[]; onChanged: () => void }) {
+  const { currentBusinessId } = useAuth();
+  const [target, setTarget] = useState<SubsidyPendingRow | null>(null);
+  if (rows.length === 0) return null;
+
+  const close = () => {
+    setTarget(null);
+    onChanged();
+  };
+
+  return (
+    <div className="card" style={{ marginTop: '0.9rem' }}>
+      <p style={{ margin: '0 0 0.2rem', fontWeight: 600 }}>
+        아직 안내 대상이 아닌 근로자 <span className="hint-text">({rows.length}명)</span>
+      </p>
+      <p className="hint-text" style={{ margin: '0 0 0.6rem' }}>
+        검증 승인을 받으면 위 목록으로 올라갑니다. 여기 있는 사람에게는 안내 메일이 나가지 않습니다.
+      </p>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>근로자명</th>
+            <th>소속기업</th>
+            <th>입사일</th>
+            <th>왜 안내 대상이 아닌가</th>
+            <th>하실 일</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.workerId}>
+              <td>{r.workerName}</td>
+              <td>{r.companyName ?? '-'}</td>
+              <td>{r.hireDate ?? <span className="hint-text">없음</span>}</td>
+              <td>{r.reason}</td>
+              <td className="hint-text">{r.action}</td>
+              <td>
+                <button
+                  className="btn btn-sm"
+                  disabled={!r.canValidate}
+                  title={r.canValidate ? '근로자 신청 검증 열기' : '소속 기업이 없어 검증을 돌릴 수 없습니다'}
+                  onClick={() => setTarget(r)}
+                >
+                  검증하러 가기
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {target && target.companyId && currentBusinessId && (
+        <Modal title={`근로자 신청 검증 — ${target.workerName}`} onClose={close}>
+          <WorkerValidationPanel
+            businessId={currentBusinessId}
+            companyId={target.companyId}
+            workerId={target.workerId}
+            onApproved={close}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
