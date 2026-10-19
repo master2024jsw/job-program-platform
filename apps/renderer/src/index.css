@@ -515,3 +515,158 @@ table.data-table {
   font-size: 0.72rem;
   font-weight: 700;
 }
+
+/* ── 참여자·지원금 계단 화면 (ParticipationsPage) ───────────────────── */
+
+.cascade {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.2fr) minmax(360px, 2.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* 좁은 화면에서는 칸을 무조건 줄이지 않고 아래로 쌓는다 (설계서 §14) */
+@media (max-width: 1100px) {
+  .cascade {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cascade-col {
+  min-width: 0;
+}
+
+.cascade-col h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.pick-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.pick-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.pick-item.is-active {
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.pick-item strong {
+  font-size: 0.9rem;
+}
+
+.calc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+
+.calc-total {
+  padding: 10px 0;
+  font-size: 0.95rem;
+}
+
+.calc-total strong {
+  font-size: 1.15rem;
+}
+
+.benefit-block {
+  margin-top: 16px;
+}
+
+.benefit-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.data-table td.num,
+.data-table th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.reason-cell {
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.link-btn {
+  margin-left: 8px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pad { padding: 8px 0; }
+.pad-top { padding-top: 12px; }
+.pad-bottom { padding-bottom: 8px; }
+
+/* 공통 .data-table 은 모든 셀이 white-space: nowrap 이라 긴 문장이 칸을 넘친다.
+   계단 화면의 표만 줄바꿈을 허용하고 칸 안에 가둔다. */
+.cascade .data-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.cascade .data-table th,
+.cascade .data-table td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.cascade .data-table td.num,
+.cascade .data-table th.num {
+  white-space: nowrap;
+}
+
+.cascade .reason-cell {
+  white-space: normal;
+}
+
+/* 기업 목록의 단계 배지 — 눌러서 바꿀 수 있다는 걸 보이게 한다 */
+.stage-badge {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.stage-badge:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.stage-badge:not(:disabled):hover {
+  filter: brightness(0.93);
+}

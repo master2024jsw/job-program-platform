@@ -7,6 +7,7 @@ import { GuidePage } from './pages/GuidePage';
 import { NewBizPage } from './pages/NewBizPage';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { WorkersPage } from './pages/WorkersPage';
+import { ParticipationsPage } from './pages/ParticipationsPage';
 import { MailPage } from './pages/MailPage';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { SubsidyPage } from './pages/SubsidyPage';
@@ -47,6 +48,7 @@ function RootRoutes() {
         <Route path="/newbiz" element={<NewBizPage />} />
         <Route path="/companies" element={<CompaniesPage />} />
         <Route path="/workers" element={<WorkersPage />} />
+        <Route path="/participations" element={<ParticipationsPage />} />
         <Route path="/mail" element={<MailPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/subsidy" element={<SubsidyPage />} />

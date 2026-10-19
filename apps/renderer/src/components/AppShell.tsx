@@ -12,6 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/newbiz', label: '신사업 알리미' },
   { to: '/companies', label: '기업 DB' },
   { to: '/workers', label: '근로자 관리' },
+  { to: '/participations', label: '참여자 · 지원금' },
   { to: '/mail', label: '메일 관리' },
   { to: '/documents', label: '문서함' },
   { to: '/subsidy', label: '지원금 안내' },
