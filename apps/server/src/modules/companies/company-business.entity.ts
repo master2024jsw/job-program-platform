@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Company } from './company.entity';
+import { CompanyStage } from '@job-program/shared';
 import { Business } from '../businesses/business.entity';
 
 /** 기업 × 사업(bizId) 진행상태. 협약·인원·상태는 기업 자체가 아니라 이 조합에 귀속된다. */
@@ -24,6 +25,13 @@ export class CompanyBusiness {
   businessId!: string;
 
   /** 예: 일반형, 세대통합형 (엑셀 '참여유형' 열) */
+  /**
+   * 통일된 진행 단계 (설계서: 모집단계/사업진행상태/상태 3개를 하나로).
+   * 사업별로 따로 관리되므로 2026 사업이 '근로자검증완료'여도 2027 사업은 '모집대상'에서 시작한다.
+   */
+  @Column({ type: 'varchar', default: CompanyStage.PROSPECT })
+  stage!: CompanyStage;
+
   @Column({ name: 'participation_type', type: 'varchar', nullable: true })
   participationType?: string | null;
 
@@ -42,6 +50,8 @@ export class CompanyBusiness {
   @Column({ name: 'agreement_date', type: 'varchar', nullable: true })
   agreementDate?: string | null;
 
+  // 아래 불리언 4개는 참여기업 관리대장(공문 제출 양식) 출력에 필요해서 유지한다.
+  // 화면에서는 stage 하나만 보이고, 단계가 올라갈 때 해당 항목이 자동으로 켜진다.
   @Column({ name: 'agreement_concluded', type: 'boolean', default: false })
   agreementConcluded!: boolean;
 

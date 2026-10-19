@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,7 +16,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import type { ApiResponse } from '@job-program/shared';
+import { COMPANY_STAGES, CompanyStage } from '@job-program/shared';
+import type { SessionUser, ApiResponse } from '@job-program/shared';
 import type { CompanyRow } from '@job-program/shared';
 import type { ImportSummary } from '../../common/excel.util';
 import { CompaniesService, type ContactNormalizePreviewRow, type DedupeGroup } from './companies.service';
@@ -24,10 +26,19 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 import { UpsertCompanyBusinessDto } from './dto/upsert-company-business.dto';
 import { Company } from './company.entity';
 import { CompanyBusiness } from './company-business.entity';
+import { CompanyStageService } from './company-stage.service';
+import { CompanyStageChange } from './company-stage-change.entity';
+import { SetCompanyStageDto } from './dto/set-company-stage.dto';
+import { BusinessesService } from '../businesses/businesses.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Controller('companies')
 export class CompaniesController {
-  constructor(private readonly companiesService: CompaniesService) {}
+  constructor(
+    private readonly companiesService: CompaniesService,
+    private readonly companyStageService: CompanyStageService,
+    private readonly businessesService: BusinessesService,
+  ) {}
 
   @Get('export')
   async export(@Query('businessId') businessId: string | undefined, @Res() res: Response): Promise<void> {
@@ -97,10 +108,43 @@ export class CompaniesController {
   async findAll(
     @Query('keyword') keyword?: string,
     @Query('businessId') businessId?: string,
-    @Query('contactableOnly') contactableOnly?: 'true' | 'false',
+    @Query('stage') stage?: CompanyStage,
   ): Promise<ApiResponse<CompanyRow[]>> {
-    const companies = await this.companiesService.findAll({ keyword, businessId, contactableOnly });
+    if (stage && !COMPANY_STAGES.includes(stage)) {
+      throw new BadRequestException(`알 수 없는 단계입니다: ${stage}`);
+    }
+    const companies = await this.companiesService.findAll({ keyword, businessId, stage });
     return { success: true, data: companies };
+  }
+
+  /** 단계 수동 변경 — 되돌리기(역행)도 허용하되 사유와 사람을 기록한다. */
+  @Patch(':id/stage')
+  async setStage(
+    @CurrentUser() user: SessionUser,
+    @Param('id') companyId: string,
+    @Query('businessId') businessId: string | undefined,
+    @Body() dto: SetCompanyStageDto,
+  ): Promise<ApiResponse<CompanyBusiness>> {
+    if (!businessId) throw new BadRequestException('businessId 가 필요합니다.');
+    await this.businessesService.assertAccess(user, businessId);
+    const cb = await this.companiesService.getCompanyBusiness(companyId, businessId);
+    if (!cb) throw new NotFoundException('이 기업은 해당 사업에 참여하지 않았습니다.');
+    const saved = await this.companyStageService.setManually(cb.id, dto.stage, dto.reason ?? null, user);
+    return { success: true, data: saved as unknown as CompanyBusiness };
+  }
+
+  /** 단계 변경 이력 (최신순) */
+  @Get(':id/stage/history')
+  async stageHistory(
+    @CurrentUser() user: SessionUser,
+    @Param('id') companyId: string,
+    @Query('businessId') businessId: string | undefined,
+  ): Promise<ApiResponse<CompanyStageChange[]>> {
+    if (!businessId) throw new BadRequestException('businessId 가 필요합니다.');
+    await this.businessesService.assertAccess(user, businessId);
+    const cb = await this.companiesService.getCompanyBusiness(companyId, businessId);
+    if (!cb) return { success: true, data: [] };
+    return { success: true, data: await this.companyStageService.history(cb.id) };
   }
 
   @Get(':id')
@@ -125,8 +169,11 @@ export class CompaniesController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<ApiResponse<null>> {
-    await this.companiesService.remove(id);
-    return { success: true };
+  async remove(
+    @Param('id') id: string,
+    @Query('force') force?: string,
+  ): Promise<ApiResponse<{ deletedParticipations: number; deletedClaims: number }>> {
+    const result = await this.companiesService.remove(id, force === 'true');
+    return { success: true, data: result };
   }
 }

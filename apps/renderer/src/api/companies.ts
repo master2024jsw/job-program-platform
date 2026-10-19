@@ -1,4 +1,4 @@
-import type { Company, CompanyBusiness, CompanyRow } from '@job-program/shared';
+import type { Company, CompanyBusiness, CompanyRow, CompanyStage, CompanyStageChange } from '@job-program/shared';
 import { api, downloadFile, type ImportSummary } from './client';
 
 export type CompanyInput = Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'source'>;
@@ -33,17 +33,32 @@ export interface ContactNormalizePreviewRow {
 }
 
 export const companiesApi = {
-  list: (params?: { keyword?: string; businessId?: string; contactableOnly?: boolean }) => {
+  /** 단계 수동 변경. 되돌리기도 가능하며 사유가 이력에 남는다. */
+  setStage: (companyId: string, businessId: string, stage: CompanyStage, reason?: string) =>
+    api.patch<CompanyBusiness>(
+      `/companies/${companyId}/stage?businessId=${encodeURIComponent(businessId)}`,
+      { stage, reason },
+    ),
+  stageHistory: (companyId: string, businessId: string) =>
+    api.get<CompanyStageChange[]>(
+      `/companies/${companyId}/stage/history?businessId=${encodeURIComponent(businessId)}`,
+    ),
+
+  list: (params?: { keyword?: string; businessId?: string; stage?: CompanyStage }) => {
     const query = new URLSearchParams();
     if (params?.keyword) query.set('keyword', params.keyword);
     if (params?.businessId) query.set('businessId', params.businessId);
-    if (params?.contactableOnly) query.set('contactableOnly', 'true');
+    if (params?.stage) query.set('stage', params.stage);
     const qs = query.toString();
     return api.get<CompanyRow[]>(`/companies${qs ? `?${qs}` : ''}`);
   },
   create: (dto: Partial<CompanyInput>) => api.post<Company>('/companies', dto),
   update: (id: string, dto: Partial<CompanyInput>) => api.patch<Company>(`/companies/${id}`, dto),
-  remove: (id: string) => api.delete<null>(`/companies/${id}`),
+  /** force=true 면 연결된 참여기록·지원금신청까지 함께 지운다. */
+  remove: (id: string, force = false) =>
+    api.delete<{ deletedParticipations: number; deletedClaims: number }>(
+      `/companies/${id}${force ? '?force=true' : ''}`,
+    ),
   upsertBusiness: (id: string, dto: UpsertCompanyBusinessInput) =>
     api.put<CompanyBusiness>(`/companies/${id}/business`, dto),
   exportExcel: (businessId?: string) =>

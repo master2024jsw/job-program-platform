@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CompanyStatus, RecruitStatus, RECRUIT_STATUS_LABEL, type CompanyRow } from '@job-program/shared';
+import {
+  COMPANY_STAGES,
+  COMPANY_STAGE_LABEL,
+  COMPANY_STAGE_WAITING_FOR,
+  CompanyStage,
+  CompanyStatus,
+  RecruitStatus,
+  type CompanyRow,
+} from '@job-program/shared';
 import { companiesApi, type CompanyInput, type DedupeGroup, type ContactNormalizePreviewRow, type UpsertCompanyBusinessInput } from '../api/companies';
 import type { ImportSummary } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Modal } from '../components/Modal';
 import { ImportResultModal } from '../components/ImportResultModal';
 import { mailApi } from '../api/mail';
+import { ApiError } from '../api/client';
 
 const emptyForm: CompanyInput = {
   name: '',
@@ -40,8 +49,12 @@ export function CompaniesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
-  const [contactableOnly, setContactableOnly] = useState(false);
-  const [recruitFilter, setRecruitFilter] = useState<'all' | 'prospect' | 'applied'>('all');
+  const [stageFilter, setStageFilter] = useState<CompanyStage | 'all'>('all');
+  // 단계 변경 모달
+  const [stageTarget, setStageTarget] = useState<CompanyRow | null>(null);
+  const [stageValue, setStageValue] = useState<CompanyStage>(CompanyStage.PROSPECT);
+  const [stageReason, setStageReason] = useState('');
+  const [stageSaving, setStageSaving] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CompanyRow | null>(null);
@@ -68,7 +81,7 @@ export function CompaniesPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await companiesApi.list({ keyword: kw, businessId: currentBusinessId ?? undefined, contactableOnly });
+      const data = await companiesApi.list({ keyword: kw, businessId: currentBusinessId ?? undefined });
       setCompanies(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : '기업 목록을 불러오지 못했습니다.');
@@ -80,7 +93,7 @@ export function CompaniesPage() {
   useEffect(() => {
     load(keyword);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBusinessId, contactableOnly]);
+  }, [currentBusinessId]);
 
   const openCreate = () => {
     setEditing(null);
@@ -147,6 +160,23 @@ export function CompaniesPage() {
       await companiesApi.remove(company.id);
       await load(keyword);
     } catch (e) {
+      // 연결된 참여자·지원금이 있으면 서버가 409 와 함께 무엇이 막는지 알려준다.
+      // 그 내용을 그대로 보여주고, 함께 지울지 한 번 더 확인받는다.
+      if (e instanceof ApiError && e.status === 409) {
+        if (!window.confirm(`${e.message}
+
+연결된 자료까지 모두 삭제할까요? 되돌릴 수 없습니다.`)) return;
+        try {
+          const r = await companiesApi.remove(company.id, true);
+          await load(keyword);
+          window.alert(
+            `'${company.name}' 삭제 완료 — 참여기록 ${r.deletedParticipations}건, 지원금 신청 ${r.deletedClaims}건을 함께 삭제했습니다.`,
+          );
+        } catch (e2) {
+          window.alert(e2 instanceof Error ? e2.message : '삭제에 실패했습니다.');
+        }
+        return;
+      }
       window.alert(e instanceof Error ? e.message : '삭제에 실패했습니다.');
     }
   };
@@ -189,17 +219,40 @@ export function CompaniesPage() {
     }
   };
 
-  const rows = useMemo(() => {
-    if (recruitFilter === 'prospect')
-      return companies.filter((c) =>
-        c.recruitStatus === RecruitStatus.PROSPECT || c.recruitStatus === RecruitStatus.CONTACTED,
-      );
-    if (recruitFilter === 'applied')
-      return companies.filter((c) =>
-        c.recruitStatus === RecruitStatus.APPLIED || c.recruitStatus === RecruitStatus.VERIFIED,
-      );
-    return companies;
-  }, [companies, recruitFilter]);
+  const rows = useMemo(
+    () => (stageFilter === 'all' ? companies : companies.filter((c) => c.stage === stageFilter)),
+    [companies, stageFilter],
+  );
+
+  /** 단계마다 색을 달리해 목록에서 진행 정도가 한눈에 보이게 한다. */
+  const stageBadgeClass = (stage: CompanyStage): string => {
+    if (stage === CompanyStage.WORKER_VERIFIED) return 'badge-active';
+    if (stage === CompanyStage.WORKER_APPLIED || stage === CompanyStage.AGREEMENT_SIGNED) return 'badge-info';
+    if (stage === CompanyStage.AGREEMENT_SENT || stage === CompanyStage.COMPANY_VERIFIED) return 'badge-pending';
+    if (stage === CompanyStage.DOCS_REQUESTED) return 'badge-warning';
+    return 'badge-inactive';
+  };
+
+  const openStage = (c: CompanyRow) => {
+    setStageTarget(c);
+    setStageValue(c.stage);
+    setStageReason('');
+  };
+
+  const submitStage = async () => {
+    if (!stageTarget || !currentBusinessId) return;
+    setStageSaving(true);
+    setError(null);
+    try {
+      await companiesApi.setStage(stageTarget.id, currentBusinessId, stageValue, stageReason || undefined);
+      setStageTarget(null);
+      await load(keyword);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '단계를 바꾸지 못했습니다.');
+    } finally {
+      setStageSaving(false);
+    }
+  };
 
   const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -285,21 +338,19 @@ export function CompaniesPage() {
           <button className="btn" onClick={() => load(keyword)}>
             검색
           </button>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem' }}>
-            <input type="checkbox" checked={contactableOnly} onChange={(e) => setContactableOnly(e.target.checked)} />
-            연락불가 기업만
-          </label>
-          <span style={{ display: 'flex', gap: '0.25rem', marginLeft: '0.5rem' }}>
-            {(['all', 'prospect', 'applied'] as const).map((f) => (
-              <button
-                key={f}
-                className={`btn btn-sm${recruitFilter === f ? ' btn-primary' : ''}`}
-                onClick={() => setRecruitFilter(f)}
-              >
-                {f === 'all' ? '전체' : f === 'prospect' ? '모집·안내' : '신청·완료'}
-              </button>
+          <select
+            className="select-input"
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value as CompanyStage | 'all')}
+            style={{ marginLeft: '0.5rem' }}
+          >
+            <option value="all">단계 전체</option>
+            {COMPANY_STAGES.map((st) => (
+              <option key={st} value={st}>
+                {COMPANY_STAGE_LABEL[st]}
+              </option>
             ))}
-          </span>
+          </select>
         </div>
         <div className="toolbar-left">
           <button
@@ -346,22 +397,19 @@ export function CompaniesPage() {
               <th>대표자</th>
               <th>연락처</th>
               <th>이메일</th>
-              <th>연락가능</th>
-              <th>모집단계</th>
-              <th>사업 진행상태</th>
-              <th>상태</th>
+              <th>단계</th>
               <th>작업</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr className="empty-row">
-                <td colSpan={10}>불러오는 중...</td>
+                <td colSpan={7}>불러오는 중...</td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr className="empty-row">
-                <td colSpan={10}>등록된 기업이 없습니다.</td>
+                <td colSpan={7}>등록된 기업이 없습니다.</td>
               </tr>
             )}
             {!loading &&
@@ -373,40 +421,18 @@ export function CompaniesPage() {
                   <td>{c.phone || '-'}</td>
                   <td>{c.email || '-'}</td>
                   <td>
-                    <span className={`badge ${c.contactable ? 'badge-active' : 'badge-failed'}`}>
-                      {c.contactable ? '연락가능' : '연락불가'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${
-                      c.recruitStatus === RecruitStatus.VERIFIED ? 'badge-active' :
-                      c.recruitStatus === RecruitStatus.APPLIED ? 'badge-active' :
-                      c.recruitStatus === RecruitStatus.CONTACTED ? 'badge-pending' :
-                      'badge-inactive'
-                    }`}>
-                      {RECRUIT_STATUS_LABEL[c.recruitStatus ?? RecruitStatus.PROSPECT]}
-                    </span>
-                  </td>
-                  <td>
-                    {c.companyBusiness ? (
-                      <span className="hint-text">
-                        {c.companyBusiness.agreementConcluded ? '협약체결 ' : ''}
-                        {c.companyBusiness.businessPlanRegistered ? '· 계획등록 ' : ''}
-                        {c.companyBusiness.participantApplied ? '· 참여자신청' : ''}
-                        {!c.companyBusiness.agreementConcluded &&
-                        !c.companyBusiness.businessPlanRegistered &&
-                        !c.companyBusiness.participantApplied
-                          ? '-'
-                          : ''}
-                      </span>
-                    ) : (
-                      <span className="hint-text">-</span>
+                    <button
+                      type="button"
+                      className={`badge stage-badge ${stageBadgeClass(c.stage)}`}
+                      title={`${COMPANY_STAGE_WAITING_FOR[c.stage]} (눌러서 변경)`}
+                      onClick={() => openStage(c)}
+                      disabled={!c.companyBusiness}
+                    >
+                      {COMPANY_STAGE_LABEL[c.stage]}
+                    </button>
+                    {c.status === CompanyStatus.INACTIVE && (
+                      <span className="badge badge-inactive" title="기업 원장에서 '중지'로 표시된 기업입니다">중지</span>
                     )}
-                  </td>
-                  <td>
-                    <span className={`badge ${c.status === CompanyStatus.ACTIVE ? 'badge-active' : 'badge-inactive'}`}>
-                      {c.status === CompanyStatus.ACTIVE ? '운영중' : '중지'}
-                    </span>
                   </td>
                   <td className="actions">
                     <button className="btn btn-sm" onClick={() => openEdit(c)}>
@@ -597,39 +623,12 @@ export function CompaniesPage() {
                   onChange={(e) => setBusinessForm({ ...businessForm, agreementDate: e.target.value })}
                 />
               </div>
-              <div className="field full" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={businessForm.agreementConcluded ?? false}
-                    onChange={(e) => setBusinessForm({ ...businessForm, agreementConcluded: e.target.checked })}
-                  />
-                  협약체결
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={businessForm.businessPlanRegistered ?? false}
-                    onChange={(e) => setBusinessForm({ ...businessForm, businessPlanRegistered: e.target.checked })}
-                  />
-                  사업계획등록
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={businessForm.documentGuideSent ?? false}
-                    onChange={(e) => setBusinessForm({ ...businessForm, documentGuideSent: e.target.checked })}
-                  />
-                  서류안내
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={businessForm.participantApplied ?? false}
-                    onChange={(e) => setBusinessForm({ ...businessForm, participantApplied: e.target.checked })}
-                  />
-                  참여자신청
-                </label>
+              <div className="field full">
+                <label>단계</label>
+                <p className="hint-text">
+                  단계는 목록에서 단계 배지를 눌러 바꿉니다. 협약체결·사업계획등록·참여자서류안내·참여자신청
+                  항목은 단계에 따라 자동으로 채워져 참여기업 관리대장에 그대로 나갑니다.
+                </p>
               </div>
             </div>
 
@@ -733,6 +732,49 @@ export function CompaniesPage() {
               </div>
             </>
           )}
+        </Modal>
+      )}
+
+      {stageTarget && (
+        <Modal title={`단계 변경 — ${stageTarget.name}`} onClose={() => setStageTarget(null)}>
+          <p className="hint-text">{COMPANY_STAGE_WAITING_FOR[stageValue]}</p>
+          <div className="field">
+            <label>단계</label>
+            <select
+              className="select-input"
+              value={stageValue}
+              onChange={(e) => setStageValue(e.target.value as CompanyStage)}
+            >
+              {COMPANY_STAGES.map((st) => (
+                <option key={st} value={st}>
+                  {COMPANY_STAGE_LABEL[st]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>사유</label>
+            <input
+              className="text-input"
+              placeholder="되돌리는 경우 사유를 남겨 주세요"
+              value={stageReason}
+              onChange={(e) => setStageReason(e.target.value)}
+            />
+          </div>
+          <p className="hint-text">변경 내용은 이력에 기록됩니다 (누가, 언제, 왜).</p>
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={() => setStageTarget(null)}>
+              취소
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void submitStage()}
+              disabled={stageSaving || stageValue === stageTarget.stage}
+            >
+              {stageSaving ? '저장 중...' : '변경'}
+            </button>
+          </div>
         </Modal>
       )}
     </div>

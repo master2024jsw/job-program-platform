@@ -1,3 +1,5 @@
+import type { CompanyStage } from './company-stage';
+
 export enum CompanyStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
@@ -46,6 +48,8 @@ export interface CompanyBusiness {
   id: string;
   companyId: string;
   businessId: string;
+  /** 통일된 진행 단계. 사업별로 따로 관리된다. */
+  stage: CompanyStage;
   participationType?: string | null;
   plannedHeadcount?: number | null;
   generalTypeHeadcount?: number | null;
@@ -63,8 +67,12 @@ export interface CompanyBusiness {
   updatedAt: string;
 }
 
-/** 기업 목록 조회 시 현재 선택된 사업의 CompanyBusiness와 연락가능 여부가 함께 내려온다. */
+/**
+ * 기업 목록 조회 시 현재 선택된 사업의 CompanyBusiness 가 함께 내려온다.
+ * `stage` 는 목록 정렬·필터에 쓰려고 꺼내 둔 것이고, 원본은 companyBusiness.stage 다.
+ * 사업에 아직 참여하지 않은 기업은 companyBusiness 가 null 이고 stage 는 PROSPECT 로 본다.
+ */
 export interface CompanyRow extends Company {
   companyBusiness: CompanyBusiness | null;
-  contactable: boolean;
+  stage: CompanyStage;
 }

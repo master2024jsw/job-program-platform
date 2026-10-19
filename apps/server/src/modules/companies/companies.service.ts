@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Logger, BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
-import { CompanyStatus, RecruitStatus, RECRUIT_STATUS_ORDER, type CompanyRow } from '@job-program/shared';
+import { In, Like, Repository } from 'typeorm';
+import { CompanyStage, CompanyStatus, RecruitStatus, RECRUIT_STATUS_ORDER, type CompanyRow } from '@job-program/shared';
 import { buildExcelBuffer, readExcelRows, type ExcelColumn, type ImportSummary } from '../../common/excel.util';
 import { Company } from './company.entity';
 import { CompanyBusiness } from './company-business.entity';
@@ -9,6 +9,8 @@ import { Worker } from '../workers/worker.entity';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { UpsertCompanyBusinessDto } from './dto/upsert-company-business.dto';
+import { Participation } from '../participations/participation.entity';
+import { SubsidyClaim } from '../subsidy/subsidy-claim.entity';
 
 const STATUS_LABEL: Record<CompanyStatus, string> = {
   [CompanyStatus.ACTIVE]: '운영중',
@@ -111,6 +113,8 @@ function parseYesNo(value?: string): boolean | undefined {
 
 @Injectable()
 export class CompaniesService {
+  private readonly logger = new Logger(CompaniesService.name);
+
   constructor(
     @InjectRepository(Company)
     private readonly companiesRepository: Repository<Company>,
@@ -118,6 +122,10 @@ export class CompaniesService {
     private readonly companyBusinessRepository: Repository<CompanyBusiness>,
     @InjectRepository(Worker)
     private readonly workersRepository: Repository<Worker>,
+    @InjectRepository(Participation)
+    private readonly participationsRepository: Repository<Participation>,
+    @InjectRepository(SubsidyClaim)
+    private readonly subsidyClaimsRepository: Repository<SubsidyClaim>,
   ) {}
 
   async create(dto: CreateCompanyDto): Promise<Company> {
@@ -130,7 +138,7 @@ export class CompaniesService {
     return this.companiesRepository.save(company);
   }
 
-  async findAll(params?: { keyword?: string; businessId?: string; contactableOnly?: 'true' | 'false' }): Promise<CompanyRow[]> {
+  async findAll(params?: { keyword?: string; businessId?: string; stage?: CompanyStage }): Promise<CompanyRow[]> {
     const companies = params?.keyword
       ? await this.companiesRepository.find({ where: { name: Like(`%${params.keyword}%`) }, order: { createdAt: 'DESC' } })
       : await this.companiesRepository.find({ order: { createdAt: 'DESC' } });
@@ -142,8 +150,9 @@ export class CompaniesService {
     }
 
     let rows: CompanyRow[] = companies.map((c) => {
-      const contactable = Boolean(c.phone || c.email || c.fax);
       const cb = cbMap.get(c.id) ?? null;
+      // 사업에 참여하지 않은 기업은 그 사업에서 아직 '모집대상'이다.
+      const stage = cb?.stage ?? CompanyStage.PROSPECT;
       return {
         id: c.id,
         name: c.name,
@@ -160,12 +169,13 @@ export class CompaniesService {
         memo: c.memo ?? null,
         createdAt: c.createdAt.toISOString(),
         updatedAt: c.updatedAt.toISOString(),
-        contactable,
+        stage,
         companyBusiness: cb
           ? {
               id: cb.id,
               companyId: cb.companyId,
               businessId: cb.businessId,
+              stage: cb.stage ?? CompanyStage.PROSPECT,
               participationType: cb.participationType ?? null,
               plannedHeadcount: cb.plannedHeadcount ?? null,
               generalTypeHeadcount: cb.generalTypeHeadcount ?? null,
@@ -186,8 +196,8 @@ export class CompaniesService {
       };
     });
 
-    if (params?.contactableOnly === 'true') {
-      rows = rows.filter((r) => !r.contactable);
+    if (params?.stage) {
+      rows = rows.filter((r) => r.stage === params.stage);
     }
 
     return rows;
@@ -218,11 +228,52 @@ export class CompaniesService {
     return this.companiesRepository.save(company);
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.companiesRepository.delete(id);
-    if (result.affected === 0) {
+  /**
+   * 기업 삭제.
+   *
+   * 참여기록(participations)이 있으면 그냥 지우면 사람의 참여 이력이 조용히 사라지므로 막는다.
+   * 다만 "왜 안 되는지"를 알 수 있게 무엇이 막고 있는지 세어서 알려주고,
+   * 정말 지우려면 force=true 로 함께 지울 수 있게 한다 (테스트 자료 정리 등).
+   *
+   * 근로자(workers)는 함께 지우지 않는다 — 사람 원장은 남고 소속만 비워진다(FK on delete SET NULL).
+   */
+  async remove(id: string, force = false): Promise<{ deletedParticipations: number; deletedClaims: number }> {
+    const company = await this.companiesRepository.findOne({ where: { id } });
+    if (!company) {
       throw new NotFoundException(`기업(id=${id})을 찾을 수 없습니다.`);
     }
+
+    const cbs = await this.companyBusinessRepository.find({ where: { companyId: id } });
+    const cbIds = cbs.map((cb) => cb.id);
+
+    const participations = cbIds.length
+      ? await this.participationsRepository.find({ where: { companyBusinessId: In(cbIds) } })
+      : [];
+    const partIds = participations.map((p) => p.id);
+    const claims = partIds.length
+      ? await this.subsidyClaimsRepository.find({ where: { participationId: In(partIds) } })
+      : [];
+
+    if (!force && (participations.length > 0 || claims.length > 0)) {
+      const parts: string[] = [];
+      if (participations.length) parts.push(`참여자 ${participations.length}명`);
+      if (claims.length) parts.push(`지원금 신청 ${claims.length}건`);
+      throw new ConflictException(
+        `'${company.name}'에 연결된 ${parts.join(', ')}이(가) 있어 삭제할 수 없습니다. ` +
+          `먼저 참여자·지원금을 정리하거나, 함께 삭제하려면 '연결된 자료까지 삭제'를 선택하세요.`,
+      );
+    }
+
+    if (claims.length) await this.subsidyClaimsRepository.remove(claims);
+    if (participations.length) await this.participationsRepository.remove(participations);
+
+    // company_businesses 는 FK CASCADE 로 함께 지워진다.
+    await this.companiesRepository.delete(id);
+    this.logger.log(
+      `기업 삭제: ${company.name}` +
+        (force ? ` (함께 삭제 — 참여자 ${participations.length}, 지원금신청 ${claims.length})` : ''),
+    );
+    return { deletedParticipations: participations.length, deletedClaims: claims.length };
   }
 
   private async assertBrnAvailable(brn: string, excludeId?: string): Promise<void> {
@@ -244,6 +295,11 @@ export class CompaniesService {
       await this.upgradeRecruitStatus(companyId, RecruitStatus.CONTACTED);
     }
     return this.companyBusinessRepository.save(cb);
+  }
+
+  /** 기업 x 사업 참여기록을 가져온다. 없으면 null (자동 생성하지 않는다). */
+  async getCompanyBusiness(companyId: string, businessId: string): Promise<CompanyBusiness | null> {
+    return this.companyBusinessRepository.findOne({ where: { companyId, businessId } });
   }
 
   /** recruitStatus를 상향 전환만 허용 (역행 금지). */
