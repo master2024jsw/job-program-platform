@@ -13,14 +13,21 @@ apps/server/.prod-bundle/
 .env
 .env.local
 
-# sqlite data
-apps/server/data/*.sqlite
-apps/server/data/*.sqlite3
-apps/server/data/*.db
-
-# uploaded documents
+# 실자료 폴더 전체 (DB·업로드 서류·메일 수집함).
+# 전에는 *.sqlite 와 uploads/ 만 막아서, _inbox/ 와 _사업미지정/ 아래에 쌓인
+# 실제 기업·근로자 서류(주민번호 포함)가 git 에 그대로 올라갈 뻔했다. 폴더째 막는다.
+apps/server/data/*
+!apps/server/data/.gitkeep
+!apps/server/data/uploads/
 apps/server/data/uploads/*
 !apps/server/data/uploads/.gitkeep
+
+# 옛 실행 경로가 만든 저장소 루트의 DB (지금은 %APPDATA% 로 통합됨 — data-dir.ts)
+/data/
+
+# 임시 산출물
+*.tmp
+C：*
 
 # logs
 *.log
