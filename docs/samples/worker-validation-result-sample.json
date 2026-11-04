@@ -1,0 +1,218 @@
+{
+  "status": "RISK",
+  "summary": {
+    "FAIL": 1,
+    "NEEDS_REVIEW": 3,
+    "PASS": 7
+  },
+  "rules": [
+    {
+      "ruleId": "R-200",
+      "type": "calcRule",
+      "label": "만 60세 이상 연령 확인 (참여자격)",
+      "verdict": "FAIL",
+      "message": "만 51세 — 연령 기준(만 60세 이상) 미달, 지원 불가.",
+      "evidence": {
+        "birthDate": "1975-03-02",
+        "age": 51,
+        "minAge": 60
+      }
+    },
+    {
+      "ruleId": "R-201",
+      "type": "crossCheck",
+      "label": "초본·신청서 성명 일치",
+      "verdict": "NEEDS_REVIEW",
+      "message": "name 값이 서류 간 불일치합니다 (담당자 확인).",
+      "evidence": {
+        "field": "name",
+        "values": [
+          {
+            "document": "WORKER_APPLICATION",
+            "value": "홍길등"
+          },
+          {
+            "document": "RESIDENT_ABSTRACT",
+            "value": "홍길동"
+          }
+        ]
+      }
+    },
+    {
+      "ruleId": "R-202",
+      "type": "crossCheck",
+      "label": "고용보험이력·신청서 성명 일치",
+      "verdict": "NEEDS_REVIEW",
+      "message": "name 값이 서류 간 불일치합니다 (담당자 확인).",
+      "evidence": {
+        "field": "name",
+        "values": [
+          {
+            "document": "WORKER_APPLICATION",
+            "value": "홍길등"
+          },
+          {
+            "document": "EMPLOYMENT_INSURANCE_HISTORY",
+            "value": "홍길동"
+          }
+        ]
+      }
+    },
+    {
+      "ruleId": "R-203",
+      "type": "calcRule",
+      "label": "고용보험이력 상실일 < 근로시작일 (이중취득 위험 확인)",
+      "verdict": "PASS",
+      "message": "모든 이전 직장(1건) 상실일이 근로시작일(2026-05-01) 이전 — 정상.",
+      "evidence": {
+        "anchor": "2026-05-01",
+        "total": 1,
+        "problematic": []
+      }
+    },
+    {
+      "ruleId": "R-204",
+      "type": "calcRule",
+      "label": "근로시작일 기준 90일 이내 참여기업 동일 사업장 근무 여부 (제외사유)",
+      "verdict": "PASS",
+      "message": "90일 이내 참여기업(가나다컨설팅) 동일 사업장 근무 이력 없음 — 정상.",
+      "evidence": {
+        "anchor": "2026-05-01",
+        "companyName": "가나다컨설팅",
+        "threshold": 90,
+        "recentMatches": []
+      }
+    },
+    {
+      "ruleId": "R-205",
+      "type": "calcRule",
+      "label": "인턴약정기간·수습 문구 확인 및 기간 1~3개월 이내",
+      "verdict": "PASS",
+      "message": "인턴약정기간 1.9개월 (2026-05-01 ~ 2026-06-30), 인턴/수습 문구 확인됨.",
+      "evidence": {
+        "start": "2026-05-01",
+        "end": "2026-06-30",
+        "months": 1.9,
+        "hasKeyword": true
+      }
+    },
+    {
+      "ruleId": "R-206",
+      "type": "riskFlag",
+      "label": "서명·기재 존재 확인 (신청서·동의서·적격확인서·근로계약서·교육대장)",
+      "verdict": "PASS",
+      "message": "모든 서류의 서명·기재 항목을 확인했습니다.",
+      "evidence": {
+        "failed": []
+      }
+    },
+    {
+      "ruleId": "R-207",
+      "type": "riskFlag",
+      "label": "적격확인서 표준 패턴 확인 (항목1~5 없음, 항목6 네)",
+      "verdict": "PASS",
+      "message": "항목1 없음·항목2 없음·항목3 없음·항목4 없음·항목5 없음·항목6 네 조건을 모두 충족합니다.",
+      "evidence": {
+        "document": "ELIGIBILITY_CONFIRM",
+        "checks": [
+          {
+            "field": "item1None",
+            "label": "항목1 없음",
+            "value": true,
+            "ok": true
+          },
+          {
+            "field": "item2None",
+            "label": "항목2 없음",
+            "value": true,
+            "ok": true
+          },
+          {
+            "field": "item3None",
+            "label": "항목3 없음",
+            "value": true,
+            "ok": true
+          },
+          {
+            "field": "item4None",
+            "label": "항목4 없음",
+            "value": true,
+            "ok": true
+          },
+          {
+            "field": "item5None",
+            "label": "항목5 없음",
+            "value": true,
+            "ok": true
+          },
+          {
+            "field": "item6Yes",
+            "label": "항목6 네",
+            "value": true,
+            "ok": true
+          }
+        ]
+      }
+    },
+    {
+      "ruleId": "R-208",
+      "type": "calcRule",
+      "label": "교육일자 ≥ 근로시작일 (인턴 시작 이후 교육)",
+      "verdict": "PASS",
+      "message": "2026-05-04 ≥ 2026-05-01 — 정상.",
+      "evidence": {
+        "date": "2026-05-04",
+        "anchor": "2026-05-01",
+        "relation": "onOrAfter"
+      }
+    },
+    {
+      "ruleId": "R-209",
+      "type": "crossCheck",
+      "label": "성명 일치 (신청서·근로계약서·교육대장, 초본 있으면 포함)",
+      "verdict": "NEEDS_REVIEW",
+      "message": "name 값이 서류 간 불일치합니다 (담당자 확인).",
+      "evidence": {
+        "field": "name",
+        "values": [
+          {
+            "document": "WORKER_APPLICATION",
+            "value": "홍길등"
+          },
+          {
+            "document": "LABOR_CONTRACT",
+            "value": "홍길동"
+          },
+          {
+            "document": "EDUCATION_LEDGER",
+            "value": "홍길동"
+          },
+          {
+            "document": "RESIDENT_ABSTRACT",
+            "value": "홍길동"
+          }
+        ]
+      }
+    },
+    {
+      "ruleId": "R-210",
+      "type": "crossCheck",
+      "label": "근로계약서 기업 정보 = 선택 기업 일치 확인 (기업 선택 재확인)",
+      "verdict": "PASS",
+      "message": "2개 서류의 companyName 값이 모두 일치합니다 (가나다컨설팅).",
+      "evidence": {
+        "field": "companyName",
+        "values": [
+          {
+            "document": "LABOR_CONTRACT",
+            "value": "가나다컨설팅"
+          },
+          {
+            "document": "COMPANY_CONTEXT",
+            "value": "가나다컨설팅"
+          }
+        ]
+      }
+    }
+  ]
+}
