@@ -6,7 +6,7 @@ import type { DocumentTypeCode } from '@job-program/shared';
 import { RequiredDocumentsService } from '../required-documents/required-documents.service';
 import { maskResidentNumbers } from '../../common/masking.util';
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /**
  * 검증엔진(R-101~104)이 참조하는 표준 추출 키. 서류유형별로 이 키에 담도록 프롬프트로 지시해

@@ -108,11 +108,22 @@ Electron 데스크톱 앱 + NestJS 백엔드 + React 프론트엔드, 로컬 SQL
 | 기능 | 관련 env |
 |---|---|
 | 메일 발송 | `SMTP_*`, `MAIL_FROM` |
-| AI 문서분석 | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| AI 문서분석 | `GEMINI_API_KEY`, `GEMINI_MODEL` (현재 **`gemini-3.8-flash`**) |
 | 메일 자동수집 | `IMAP_*` |
 | 세션 | `SESSION_SECRET`, `SESSION_IDLE_TIMEOUT_MINUTES` |
 
 값이 비어 있어도 서버는 정상 기동되며, 해당 기능만 실패 로그를 남기고 500으로 죽지 않도록 설계되어 있음.
+
+**AI 모델명은 세 곳을 항상 같이 맞춘다.** `.env`는 git에 없으므로, 저장소만 읽는 사람(또는 다른 세션의 Claude)은
+코드 기본값과 `.env.example`밖에 볼 수 없다. 어긋나 있으면 모델 버전을 오판한다.
+
+| 곳 | git에 있나 | 현재 값 |
+|---|---|---|
+| `apps/server/.env` → `GEMINI_MODEL` | ❌ (API 키 때문에 제외) | `gemini-3.8-flash` |
+| `gemini.service.ts` `DEFAULT_MODEL` | ✅ | `gemini-3.8-flash` |
+| `apps/server/.env.example` | ✅ | `gemini-3.8-flash` |
+
+`gemini-2.5-flash`는 Google이 신규 사용자에게 제공을 중단했다 — 기본값으로 되돌리면 AI 분석이 전부 실패한다.
 
 ## 코딩 컨벤션 (기존 코드에서 관찰된 패턴 — 새 코드도 맞춰서 작성)
 
