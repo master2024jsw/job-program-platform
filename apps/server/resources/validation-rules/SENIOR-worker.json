@@ -168,5 +168,22 @@
       "onMismatch": "NEEDS_REVIEW"
     }
   ],
-  "exceptionRules": []
+  "exceptionRules": [
+    {
+      "id": "R-203-E1",
+      "type": "exceptionRule",
+      "label": "전 직장 퇴사일 확인 시 이중취득 예외",
+      "appliesWhen": { "failedRule": "R-203", "verdicts": ["NEEDS_REVIEW", "FAIL"] },
+      "conditions": [],
+      "onMatch": "NEEDS_REVIEW",
+      "guidance": "고용보험이력의 상실일이 근로시작일 이후이거나 상실일이 확인되지 않은 경우입니다(이중취득 위험). 전 직장 퇴사일을 대조해 실제 상실일을 확인하세요 — 상실신고서 확인 또는 전 직장 유선 확인. 전 직장을 퇴사한 뒤 참여기업에 입사한 것이 확인되면 이중취득이 아니므로, 확인 방법과 결과를 승인 사유에 남기고 승인합니다. 상실일이 끝까지 확인되지 않으면 승인하지 마세요.",
+      "source": {
+        "kind": "실무경험",
+        "note": "판정이력 4건(2026-10~11)에서 담당자가 전 직장 퇴사일을 유선 확인한 뒤 '이중취득 아님'으로 승인한 처리를 규칙화. 예외 후보 화면에서 도출.",
+        "registeredBy": "정세원",
+        "registeredAt": "2026-11-14"
+      },
+      "version": 1
+    }
+  ]
 }
