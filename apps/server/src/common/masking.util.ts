@@ -38,10 +38,24 @@ export function maskDeep<T>(value: T): T {
 }
 
 /**
+ * 문자열 안의 주민번호를 앞자리까지 전부 가린다 (`******-*******`).
+ *
+ * 서류에서 뽑은 값은 생년월일(앞 6자리)이 만연령 계산(R-200)에 필요하므로 앞자리를 남기지만,
+ * 자유 입력 칸에는 그 값이 필요하지 않다. 앞 6자리는 생년월일·성별이라 그 자체가 개인정보이고,
+ * 「예외 후보」 화면처럼 여러 건을 모아 보여주는 곳에 그대로 뜨면 안 된다.
+ */
+export function maskResidentNumbersFully(text: string): string {
+  // 뒤 7자리가 이미 `2******` 처럼 부분 마스킹된 값도 잡아야 한다 —
+  // 그렇지 않으면 앞 6자리(생년월일)가 그대로 남는다.
+  return text.replace(/(\d{6})[-\s]?([1-4][\d*]{6})/g, '******-*******');
+}
+
+/**
  * 담당자 승인 사유 정리 — 저장 전 주민번호 마스킹 + 공백만이면 null.
  * 사유 칸은 자유 입력이라 개인정보가 섞일 수 있으므로 저장 경로에서 한 번 더 가린다.
+ * 여기서는 앞자리까지 전부 가린다 — 사유를 읽는 데 생년월일이 필요하지 않다.
  */
 export function sanitizeApprovalReason(raw?: string | null): string | null {
-  const text = maskResidentNumbers((raw ?? '').trim());
+  const text = maskResidentNumbersFully((raw ?? '').trim());
   return text || null;
 }
