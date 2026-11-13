@@ -1,0 +1,42 @@
+{
+  "_설명": [
+    "GET /validation/exception-candidates?businessId=BIZ-2026-SENIOR 의 실제 응답입니다.",
+    "2026-11-13 개발 DB(판정 이력 누적분)에서 받아온 것이며, 수치와 날짜는 실제 값입니다.",
+    "개인정보가 들어갈 수 있는 칸은 아래 '_비식별' 항목대로 치환했습니다.",
+    "저장소가 공개되어 있으므로 DB 파일(apps/server/data/*.sqlite)은 커밋하지 않습니다."
+  ],
+  "_비식별": [
+    "notes 의 주민번호 앞 6자리를 더미값(900101)으로 바꿨습니다.",
+    "실제 저장값은 뒤 7자리만 마스킹된 형태(예: 900101-1******)이며, 마스킹은",
+    "common/masking.util.ts 의 sanitizeApprovalReason() 이 저장 직전에 수행합니다.",
+    "집계값(targetType, ruleId, label, count, targetCount, lastApprovedAt)에는",
+    "성명·기업명·식별자가 들어가지 않으므로 그대로 두었습니다."
+  ],
+  "_읽는 법": {
+    "count": "그 규칙에 걸린 채로 담당자가 승인한 횟수",
+    "targetCount": "서로 다른 대상(기업·근로자) 수. 1이면 일회성, 여러 건이면 반복되는 유형",
+    "notes": "승인할 때 담당자가 적어 둔 사유 (최근 5건). 주민번호는 저장 전 마스킹됨"
+  },
+  "data": [
+    {
+      "targetType": "WORKER",
+      "ruleId": "R-203",
+      "label": "고용보험이력 상실일 < 근로시작일 (이중취득 위험 확인)",
+      "count": 4,
+      "targetCount": 1,
+      "lastApprovedAt": "2026-11-13T06:41:08.000Z",
+      "notes": [
+        "상실일은 전 직장 퇴사일로 전화 확인함. 주민등록번호 900101-1****** 일치. 이중취득 아님."
+      ]
+    },
+    {
+      "targetType": "COMPANY",
+      "ruleId": "R-104",
+      "label": "모집직종 참여가능 판정",
+      "count": 1,
+      "targetCount": 1,
+      "lastApprovedAt": "2026-10-16T08:16:36.000Z",
+      "notes": []
+    }
+  ]
+}
