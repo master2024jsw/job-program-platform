@@ -4,13 +4,54 @@
   "guidelineYear": 2026,
   "source": "2026년도 현장실습 훈련 지원사업 운영안내 — 지원금 신청 서류검증(6단계)",
   "documentFields": {
-    "SUBSIDY_APPLICATION": ["businessRegistrationNumber", "companyName", "representativeName", "bankName", "bankAccount", "accountHolder", "applicantCount", "totalAmount", "applicantSignature"],
-    "SUBSIDY_CALCULATION": ["entries"],
-    "INSURANCE_ROSTER": ["businessRegistrationNumber", "companyName", "entries"],
-    "LABOR_CONTRACT": ["companyName", "workerName", "internStartDate", "internEndDate", "baseSalary", "employerSignature", "workerSignature"],
-    "PAYROLL": ["companyName", "workerName", "month", "baseSalary", "totalPay", "totalDeduction", "netPay"],
-    "SALARY_TRANSFER": ["workerName", "transferAmount", "transferDate"],
-    "BANK_ACCOUNT_COPY": ["bankName", "accountHolder", "accountNumber", "isBusinessAccount"]
+    "SUBSIDY_APPLICATION": [
+      "businessRegistrationNumber",
+      "companyName",
+      "representativeName",
+      "bankName",
+      "bankAccount",
+      "accountHolder",
+      "applicantCount",
+      "totalAmount",
+      "applicantSignature"
+    ],
+    "SUBSIDY_CALCULATION": [
+      "entries"
+    ],
+    "INSURANCE_ROSTER": [
+      "businessRegistrationNumber",
+      "companyName",
+      "entries"
+    ],
+    "LABOR_CONTRACT": [
+      "companyName",
+      "workerName",
+      "internStartDate",
+      "internEndDate",
+      "baseSalary",
+      "employerSignature",
+      "workerSignature"
+    ],
+    "PAYROLL": [
+      "companyName",
+      "workerName",
+      "month",
+      "baseSalary",
+      "totalPay",
+      "totalDeduction",
+      "netPay"
+    ],
+    "SALARY_TRANSFER": [
+      "workerName",
+      "transferAmount",
+      "transferDate"
+    ],
+    "BANK_ACCOUNT_COPY": [
+      "bankName",
+      "accountHolder",
+      "accountNumber",
+      "isBusinessAccount"
+    ]
   },
   "companyRules": [
     {
@@ -18,7 +59,10 @@
       "type": "crossCheck",
       "label": "신청서 사업자번호 = 기업DB 일치 확인",
       "field": "businessRegistrationNumber",
-      "documents": ["SUBSIDY_APPLICATION", "COMPANY_CONTEXT"],
+      "documents": [
+        "SUBSIDY_APPLICATION",
+        "COMPANY_CONTEXT"
+      ],
       "normalize": "brn",
       "onMismatch": "NEEDS_REVIEW"
     },
@@ -27,7 +71,13 @@
       "type": "riskFlag",
       "label": "신청서 필수 기재·서명 확인",
       "document": "SUBSIDY_APPLICATION",
-      "fields": ["representativeName", "bankName", "bankAccount", "accountHolder", "applicantSignature"],
+      "fields": [
+        "representativeName",
+        "bankName",
+        "bankAccount",
+        "accountHolder",
+        "applicantSignature"
+      ],
       "fieldLabels": {
         "representativeName": "대표자명 기재",
         "bankName": "은행명 기재",
@@ -53,38 +103,62 @@
       "id": "R-308",
       "type": "crossCheck",
       "label": "(통장사본 제출 시) 신청서↔통장 은행명 일치 확인",
-      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "skipIfMissing": [
+        "BANK_ACCOUNT_COPY"
+      ],
       "field": "bankName",
-      "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "documents": [
+        "BANK_ACCOUNT_COPY",
+        "SUBSIDY_APPLICATION"
+      ],
       "onMismatch": "NEEDS_REVIEW"
     },
     {
       "id": "R-308a",
       "type": "crossCheck",
       "label": "(통장사본 제출 시) 신청서↔통장 예금주 일치 확인",
-      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "skipIfMissing": [
+        "BANK_ACCOUNT_COPY"
+      ],
       "field": "accountHolder",
-      "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "documents": [
+        "BANK_ACCOUNT_COPY",
+        "SUBSIDY_APPLICATION"
+      ],
       "onMismatch": "NEEDS_REVIEW"
     },
     {
       "id": "R-308b",
       "type": "crossCheck",
       "label": "(통장사본 제출 시) 신청서↔통장 계좌번호 일치 확인",
-      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "skipIfMissing": [
+        "BANK_ACCOUNT_COPY"
+      ],
       "field": "accountNumber",
-      "fieldMap": { "SUBSIDY_APPLICATION": "bankAccount" },
-      "documents": ["BANK_ACCOUNT_COPY", "SUBSIDY_APPLICATION"],
+      "fieldMap": {
+        "SUBSIDY_APPLICATION": "bankAccount"
+      },
+      "documents": [
+        "BANK_ACCOUNT_COPY",
+        "SUBSIDY_APPLICATION"
+      ],
       "onMismatch": "NEEDS_REVIEW"
     },
     {
       "id": "R-308c",
       "type": "crossCheck",
       "label": "(통장사본 제출 시) 통장 예금주 = 기업 법인상호 확인 (법인명의 여부)",
-      "skipIfMissing": ["BANK_ACCOUNT_COPY"],
+      "skipIfMissing": [
+        "BANK_ACCOUNT_COPY"
+      ],
       "field": "accountHolder",
-      "fieldMap": { "COMPANY_CONTEXT": "companyName" },
-      "documents": ["BANK_ACCOUNT_COPY", "COMPANY_CONTEXT"],
+      "fieldMap": {
+        "COMPANY_CONTEXT": "companyName"
+      },
+      "documents": [
+        "BANK_ACCOUNT_COPY",
+        "COMPANY_CONTEXT"
+      ],
       "normalize": "companyName",
       "onMismatch": "NEEDS_REVIEW"
     },
@@ -107,7 +181,10 @@
       "type": "crossCheck",
       "label": "산출내역 성명·생년월일 = 근로자DB 일치",
       "field": "name",
-      "documents": ["SUBSIDY_CALCULATION", "WORKER_CONTEXT"],
+      "documents": [
+        "SUBSIDY_CALCULATION",
+        "WORKER_CONTEXT"
+      ],
       "onMismatch": "NEEDS_REVIEW"
     },
     {
@@ -166,18 +243,24 @@
     {
       "id": "R-308c-E1",
       "type": "exceptionRule",
-      "label": "계좌 압류로 사업체 명의 계좌에 입금할 수 없는 경우",
-      "appliesWhen": { "failedRule": "R-308c", "verdicts": ["NEEDS_REVIEW", "FAIL"] },
+      "label": "계좌 압류 — 현금지급 또는 제3자 지급 요건 확인",
+      "appliesWhen": {
+        "failedRule": "R-308c",
+        "verdicts": [
+          "NEEDS_REVIEW",
+          "FAIL"
+        ]
+      },
       "conditions": [],
       "onMatch": "NEEDS_REVIEW",
-      "guidance": "통장 예금주가 기업 상호와 다릅니다. 기업 계좌가 압류되어 다른 계좌를 제출한 경우일 수 있습니다. 압류 사실과 제3자 지급이 가능한지 확인하세요(압류 관련 통지, 관할 고용센터 질의). 압류가 아니라 단순 오기·오제출이면 사업체 명의 통장사본을 다시 받으세요. 확인 경위를 승인 사유에 남기세요. ※ 제3자 지급 인정 요건과 필요 서류는 담당자 확인 후 보완 예정입니다.",
+      "guidance": "통장 예금주가 기업 상호와 다릅니다. 기업 계좌가 압류되어 다른 계좌를 제출한 경우일 수 있습니다. 압류가 확인되면 지급 방법은 두 가지입니다. 【현금지급】 현금수령확인서를 받으세요. 【제3자 지급】 제3자의 통장사본과 기업·대표자와의 관계를 증명하는 서류(가족관계증명서 등)를 함께 받으세요. 둘 중 어느 쪽이든 서류가 갖춰져야 승인하고, 확인 경위를 승인 사유에 남기세요. 압류가 아니라 단순 오기·오제출이면 사업체 명의 통장사본을 다시 받으세요.",
       "source": {
         "kind": "실무경험",
-        "note": "2026-11-14 담당자가 실제 겪은 상황으로 확인. 설계서 docs/01 §예외처리 항목에도 예정 사례로 기재. 탐지 조건만 우선 등록하고, 제3자 지급 인정 요건은 추가 기록 후 보완한다.",
+        "note": "2026-11-14 담당자 확인. 지침은 \"사업체 명의 계좌\"를 요구하지만(R-308c) 압류되면 입금이 안 된다. 실무에서는 현금지급(현금수령확인서) 또는 제3자 지급(제3자 통장사본 + 가족관계증명서 등 관계 증빙)으로 처리한다. 압류 사실은 서류에 나타나지 않으므로 자동 판정은 불가하고, 예금주 불일치를 단서로 확인 절차만 안내한다.",
         "registeredBy": "정세원",
         "registeredAt": "2026-11-14"
       },
-      "version": 1
+      "version": 2
     }
   ],
   "workerExceptionRules": []
