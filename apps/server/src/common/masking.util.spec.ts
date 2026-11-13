@@ -24,6 +24,37 @@ describe('masking.util', () => {
     expect(sanitizeApprovalReason('주민등록번호 900101-2****** 일치')).toBe('주민등록번호 ******-******* 일치');
   });
 
+  // 외부 AI로 나가는 문서 본문 텍스트 마스킹 (2026-11-14) — 실제 서류에 나타난 세 가지 표기.
+  describe('문서 본문 표기별 마스킹', () => {
+    it('구분자 없는 13자리도 가린다 (4대보험 가입자명부 형태)', () => {
+      expect(maskResidentNumbers('홍길동 9001012345678 지역가입')).toBe('홍길동 900101-2****** 지역가입');
+    });
+
+    it('하이픈 앞뒤에 공백이 있어도 가린다', () => {
+      expect(maskResidentNumbers('900101 - 2345678')).toBe('900101-2******');
+    });
+
+    it('표 안에 여러 건이 있어도 모두 가린다', () => {
+      const table = '| 홍길동 | 900101-2345678 |\n| 김철수 | 8502023456789 |';
+      const out = maskResidentNumbers(table);
+      expect(out).toContain('900101-2******');
+      expect(out).toContain('850202-3******');
+      expect(out).not.toMatch(/\d{6}-?[1-4]\d{6}/);
+    });
+
+    // 과도 마스킹 방지: 금액·날짜·사업자번호는 건드리지 않아야 추출이 망가지지 않는다.
+    it('금액·사업자등록번호는 가리지 않는다', () => {
+      expect(maskResidentNumbers('지원금 1,466,667원')).toBe('지원금 1,466,667원');
+      expect(maskResidentNumbers('사업자등록번호 123-45-67890')).toBe('사업자등록번호 123-45-67890');
+      expect(maskResidentNumbers('근로시작일 2026-06-01')).toBe('근로시작일 2026-06-01');
+    });
+
+    // 뒤 7자리 첫 자리가 5~9 이면 주민번호가 아니다 (외국인등록번호는 별도 과제).
+    it('뒤 첫 자리가 5~9 인 13자리는 가리지 않는다', () => {
+      expect(maskResidentNumbers('9001019345678')).toBe('9001019345678');
+    });
+  });
+
   it('공백만이면 null', () => {
     expect(sanitizeApprovalReason('   ')).toBeNull();
     expect(sanitizeApprovalReason(null)).toBeNull();

@@ -227,13 +227,19 @@ export class GeminiService {
     const withHintText = annotationHint ? baseText + String.fromCharCode(10, 10) + annotationHint : baseText;
     const promptText = maskResidentNumbers(withHintText);
 
+    // 외부 AI 전송 전, 문서 본문 텍스트의 주민번호도 마스킹한다(보안 안내문 준수).
+    // 저장 단계(documents.service 의 maskDeep)와 같은 함수이므로 추출 결과는 달라지지 않는다 —
+    // 뒤 6자리는 어차피 저장하지 않고, 생년월일(앞 6자리)·성별 1자리는 남아
+    // R-200(만연령)·R-201(주민번호 대조)에 지장이 없다.
+    const maskedText = maskResidentNumbers(text);
+
     const response = await client.models.generateContent({
       model,
       contents: [
         {
           role: 'user',
           parts: [
-            { text: `다음은 문서에서 추출한 텍스트입니다:\n\n${text}\n\n---\n\n${promptText}` },
+            { text: `다음은 문서에서 추출한 텍스트입니다:\n\n${maskedText}\n\n---\n\n${promptText}` },
           ],
         },
       ],
