@@ -1,6 +1,7 @@
 import type {
   CompanyLedgerFields,
   CompanyValidationResult,
+  ExceptionCandidate,
   JudgmentHistoryRecord,
   SubsidyValidationResult,
   WorkerLedgerFields,
@@ -15,8 +16,17 @@ export const validationApi = {
     api.get<CompanyValidationResult>(`/validation/company/${companyId}?businessId=${encodeURIComponent(businessId)}`),
 
   /** 담당자 승인 → 대장 반영 + 정정 이력. */
-  approveCompany: (companyId: string, businessId: string, reviewed: Partial<CompanyLedgerFields>) =>
-    api.post<CompanyValidationResult>(`/validation/company/${companyId}/approve`, { businessId, reviewed }),
+  approveCompany: (
+    companyId: string,
+    businessId: string,
+    reviewed: Partial<CompanyLedgerFields>,
+    overrideReason?: string,
+  ) =>
+    api.post<CompanyValidationResult>(`/validation/company/${companyId}/approve`, {
+      businessId,
+      reviewed,
+      ...(overrideReason ? { overrideReason } : {}),
+    }),
 
   history: (companyId: string) => api.get<JudgmentHistoryRecord[]>(`/validation/company/${companyId}/history`),
 
@@ -25,8 +35,19 @@ export const validationApi = {
     api.get<WorkerValidationResult>(`/validation/worker/${workerId}?businessId=${encodeURIComponent(businessId)}&companyId=${encodeURIComponent(companyId)}`),
 
   /** 담당자 승인 → 근로자 대장 반영 + 정정 이력. */
-  approveWorker: (workerId: string, businessId: string, companyId: string, reviewed: Partial<WorkerLedgerFields>) =>
-    api.post<WorkerValidationResult>(`/validation/worker/${workerId}/approve`, { businessId, companyId, reviewed }),
+  approveWorker: (
+    workerId: string,
+    businessId: string,
+    companyId: string,
+    reviewed: Partial<WorkerLedgerFields>,
+    overrideReason?: string,
+  ) =>
+    api.post<WorkerValidationResult>(`/validation/worker/${workerId}/approve`, {
+      businessId,
+      companyId,
+      reviewed,
+      ...(overrideReason ? { overrideReason } : {}),
+    }),
 
   workerHistory: (workerId: string) => api.get<JudgmentHistoryRecord[]>(`/validation/worker/${workerId}/history`),
 
@@ -35,8 +56,12 @@ export const validationApi = {
     api.get<SubsidyValidationResult>(`/validation/subsidy/${companyId}?businessId=${encodeURIComponent(businessId)}`),
 
   /** 담당자 승인 → SubsidyCalculation 저장 + HUMAN 이력. */
-  approveSubsidy: (companyId: string, businessId: string) =>
-    api.post<SubsidyValidationResult>(`/validation/subsidy/${companyId}/approve`, { businessId, companyId }),
+  approveSubsidy: (companyId: string, businessId: string, overrideReason?: string) =>
+    api.post<SubsidyValidationResult>(`/validation/subsidy/${companyId}/approve`, {
+      businessId,
+      companyId,
+      ...(overrideReason ? { overrideReason } : {}),
+    }),
 
   /** 근로자 1명 기준 지원금 검증 (참여자·지원금 탭). */
   workerSubsidy: (companyId: string, workerId: string, businessId: string) =>
@@ -45,4 +70,10 @@ export const validationApi = {
     ),
 
   subsidyHistory: (companyId: string) => api.get<JudgmentHistoryRecord[]>(`/validation/subsidy/${companyId}/history`),
+
+  /** 예외 후보 — "걸렸는데 담당자가 승인한" 규칙 집계 (심사③ 예외처리 축적). */
+  exceptionCandidates: (businessId: string) =>
+    api.get<ExceptionCandidate[]>(
+      `/validation/exception-candidates?businessId=${encodeURIComponent(businessId)}`,
+    ),
 };

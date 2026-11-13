@@ -1,9 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { DocumentTypeCode, RuleVerdict, ValidationRuleType } from '@job-program/shared';
+import type { DocumentTypeCode, RuleSource, RuleVerdict, ValidationRuleType } from '@job-program/shared';
 
 const resourcesDir = path.join(process.cwd(), 'resources');
+
+/**
+ * exceptionRule 조건 1건.
+ * equal/similar 는 documents 의 같은 field 를 비교하고,
+ * exists/notExists 는 document 하나의 field 가 채워져 있는지만 본다.
+ */
+export interface ExceptionCondition {
+  /** 생략 시 documents 로 비교. exists/notExists 에서는 이 서류를 본다. */
+  document?: DocumentTypeCode;
+  field: string;
+  match: 'equal' | 'similar' | 'exists' | 'notExists';
+  /** equal/similar: 비교 대상 서류 (2개 이상). */
+  documents?: DocumentTypeCode[];
+}
 
 /** riskFlag multiDocumentChecks 항목 1건. */
 export interface MultiDocCheck {
@@ -94,6 +108,22 @@ export interface RuleDef {
   transferField?: string;
   netPayField?: string;
   toleranceAmount?: number;
+
+  // ── exceptionRule 전용 (심사③ 예외처리 축적 구조) ──────────────────
+  /** 어떤 기본 규칙이 어떤 판정일 때 이 예외를 따져보나. verdicts 기본값 ['NEEDS_REVIEW','FAIL']. */
+  appliesWhen?: { failedRule: string; verdicts?: RuleVerdict[] };
+  /** 모두 만족해야 예외로 본다. */
+  conditions?: ExceptionCondition[];
+  /** 예외 인정에 필요한 추가 서류. PASS 로 내리려면 반드시 있어야 한다. */
+  requiresDocument?: DocumentTypeCode;
+  /** 예외에 해당할 때의 판정. 기본 NEEDS_REVIEW (자동 통과 금지 — ADR-07). */
+  onMatch?: RuleVerdict;
+  /** 담당자 안내 문장. */
+  guidance?: string;
+  /** 출처·등록자·등록일 (심사③). */
+  source?: RuleSource;
+  /** 1부터. 규칙을 고치면 올리고, 이전 내용은 git 이력으로 보존한다. */
+  version?: number;
 }
 
 export interface RuleLedger {
@@ -108,6 +138,12 @@ export interface RuleLedger {
   companyRules?: RuleDef[];
   /** SUBSIDY 원장: 참여자(근로자) 단위 규칙 */
   workerRules?: RuleDef[];
+  /** COMPANY/WORKER 원장: 예외 규칙 (기본 규칙 실행 후 평가). */
+  exceptionRules?: RuleDef[];
+  /** SUBSIDY 원장: 기업 단위 예외 규칙. */
+  companyExceptionRules?: RuleDef[];
+  /** SUBSIDY 원장: 근로자 단위 예외 규칙. */
+  workerExceptionRules?: RuleDef[];
 }
 
 /**
@@ -137,12 +173,60 @@ export class ValidationRulesService {
       const filePath = path.join(dir, file);
       try {
         const ledger = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as RuleLedger;
+        this.sanitizeExceptionRules(ledger, file);
         this.ledgers.set(`${ledger.typeCode}:${ledger.target}`, ledger);
       } catch (error) {
         this.logger.error(`검증규칙 파일 로드 실패(${filePath}): ${error instanceof Error ? error.message : error}`);
       }
     }
     this.logger.log(`검증규칙 원장 ${this.ledgers.size}건 로드`);
+  }
+
+  /**
+   * 예외 규칙 원장 검사. 오기입한 규칙 하나가 전체 판정을 깨지 않도록,
+   * 잘못된 건만 경고 로그를 남기고 제외한다.
+   *   - type 이 exceptionRule 이 아님
+   *   - appliesWhen.failedRule 이 같은 원장의 기본 규칙에 없음
+   */
+  private sanitizeExceptionRules(ledger: RuleLedger, file: string): void {
+    const baseIds = (rules?: RuleDef[]) => new Set((rules ?? []).map((r) => r.id));
+
+    const check = (
+      key: 'exceptionRules' | 'companyExceptionRules' | 'workerExceptionRules',
+      allowed: Set<string>,
+    ) => {
+      const list = ledger[key];
+      if (!list) return;
+      const kept = list.filter((rule) => {
+        if (rule.type !== 'exceptionRule') {
+          this.logger.warn(`[${file}] ${key}.${rule.id}: type이 exceptionRule이 아니라 제외합니다(${rule.type}).`);
+          return false;
+        }
+        const failedRule = rule.appliesWhen?.failedRule;
+        if (!failedRule) {
+          this.logger.warn(`[${file}] ${key}.${rule.id}: appliesWhen.failedRule 이 없어 제외합니다.`);
+          return false;
+        }
+        if (!allowed.has(failedRule)) {
+          this.logger.warn(
+            `[${file}] ${key}.${rule.id}: 기본 규칙 ${failedRule} 이(가) 같은 원장에 없어 제외합니다.`,
+          );
+          return false;
+        }
+        return true;
+      });
+      if (kept.length !== list.length) ledger[key] = kept;
+    };
+
+    check('exceptionRules', baseIds(ledger.rules));
+    check('companyExceptionRules', baseIds(ledger.companyRules));
+    check('workerExceptionRules', baseIds(ledger.workerRules));
+
+    const total =
+      (ledger.exceptionRules?.length ?? 0) +
+      (ledger.companyExceptionRules?.length ?? 0) +
+      (ledger.workerExceptionRules?.length ?? 0);
+    this.logger.log(`[${file}] 예외 규칙 ${total}건`);
   }
 
   getLedger(typeCode: string, target: 'COMPANY' | 'WORKER' | 'SUBSIDY'): RuleLedger | null {

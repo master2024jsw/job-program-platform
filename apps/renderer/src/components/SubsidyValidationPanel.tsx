@@ -8,6 +8,7 @@ import {
 } from '@job-program/shared';
 import { validationApi } from '../api/validation';
 import { NextActionList } from './NextActionList';
+import { ApprovalReasonField, ExceptionBadges } from './ApprovalReasonField';
 
 function statusBadgeClass(status: string): string {
   if (status === 'COMPLETE') return 'badge-active';
@@ -45,6 +46,7 @@ function RulesTable({ rules }: { rules: RuleResult[] }) {
           <tr key={r.ruleId}>
             <td>
               {r.ruleId} · {r.label}
+              <ExceptionBadges rule={r} />
             </td>
             <td>
               <span className={`badge ${verdictBadgeClass(r.verdict)}`}>{VERDICT_LABEL[r.verdict]}</span>
@@ -149,6 +151,8 @@ export function SubsidyValidationPanel({ businessId, companyId }: { businessId: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  /** 걸린 규칙을 그대로 승인할 때의 사유 — 판정 이력에 남아 예외 후보가 된다(심사③). */
+  const [overrideReason, setOverrideReason] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -170,7 +174,7 @@ export function SubsidyValidationPanel({ businessId, companyId }: { businessId: 
     setApproving(true);
     setError(null);
     try {
-      setResult(await validationApi.approveSubsidy(companyId, businessId));
+      setResult(await validationApi.approveSubsidy(companyId, businessId, overrideReason));
       window.alert('승인 완료: 지원금 산정 이력에 반영했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '승인에 실패했습니다.');
@@ -249,6 +253,7 @@ export function SubsidyValidationPanel({ businessId, companyId }: { businessId: 
 
       {/* 승인 */}
       <div className="card" style={{ padding: '0.85rem' }}>
+        <ApprovalReasonField rules={result.rules} value={overrideReason} onChange={setOverrideReason} />
         <div className="form-actions">
           <button className="btn btn-primary" disabled={approving} onClick={handleApprove}>
             {approving ? '승인 중...' : '승인 → 산정 이력 확정'}

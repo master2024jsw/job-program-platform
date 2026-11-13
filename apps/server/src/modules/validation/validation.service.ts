@@ -21,6 +21,7 @@ import { ValidationRulesService } from './validation-rules.service';
 import { JobClassificationService } from './job-classification.service';
 import { JudgmentHistoryService } from './judgment-history.service';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
+import { sanitizeApprovalReason } from '../../common/masking.util';
 
 const TARGET_COMPANY = 'COMPANY';
 const JOB_JUDGMENT_LABEL: Record<string, string> = {
@@ -215,6 +216,7 @@ export class ValidationService {
     businessId: string,
     companyId: string,
     reviewed: Partial<CompanyLedgerFields>,
+    overrideReason?: string,
   ): Promise<CompanyValidationResult> {
     const company = await this.companiesService.findOne(companyId).catch(() => null);
     if (!company) throw new NotFoundException(`기업(${companyId})을 찾을 수 없습니다.`);
@@ -250,6 +252,7 @@ export class ValidationService {
       result: result.rules,
       source: 'HUMAN',
       corrected: true,
+      note: sanitizeApprovalReason(overrideReason),
     });
 
     // 검증 승인 → recruitStatus VERIFIED 상향 (레거시 필드, 호환 위해 유지)

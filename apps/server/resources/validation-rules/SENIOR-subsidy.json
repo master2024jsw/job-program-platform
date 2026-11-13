@@ -161,5 +161,7 @@
       "toleranceAmount": 1000,
       "onFail": "NEEDS_REVIEW"
     }
-  ]
+  ],
+  "companyExceptionRules": [],
+  "workerExceptionRules": []
 }

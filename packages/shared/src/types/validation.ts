@@ -2,13 +2,27 @@ import type { DocumentTypeCode } from './document';
 
 /**
  * 도메인 검증 규칙 4유형 (논문 01문서 1.1절).
- * 4단계(기업신청)에서는 crossCheck / riskFlag / calcRule 을 구현하고,
- * exceptionRule 은 타입만 두고 6단계(지원금)에서 구현한다.
+ * crossCheck / riskFlag / calcRule 은 기본 규칙으로 원장의 rules 에 둔다.
+ * exceptionRule 은 기본 규칙이 걸린 뒤에만 평가되므로 원장의 exceptionRules 에 따로 둔다
+ * (엔진: domain-validation.engine.ts applyExceptions, 심사③ 예외처리 축적 구조).
  */
 export type ValidationRuleType = 'crossCheck' | 'riskFlag' | 'calcRule' | 'exceptionRule';
 
 /** 개별 규칙 판정. PASS(통과) / NEEDS_REVIEW(담당자확인·서류보완) / FAIL(부적격·위험). */
 export type RuleVerdict = 'PASS' | 'NEEDS_REVIEW' | 'FAIL';
+
+/**
+ * 예외 규칙의 출처 (심사③ "출처·등록자·등록일 기록").
+ * 암묵지를 규칙으로 올릴 때 근거가 무엇이었는지를 원장에 함께 남긴다.
+ */
+export interface RuleSource {
+  kind: '지침' | '상급기관회신' | '실무경험';
+  /** 조항 번호, 회신 문서번호, 사례 요약 등. */
+  note: string;
+  registeredBy: string;
+  /** YYYY-MM-DD */
+  registeredAt: string;
+}
 
 export interface RuleResult {
   ruleId: string;
@@ -19,6 +33,10 @@ export interface RuleResult {
   message: string;
   /** 비교값·조회결과 등 근거 데이터 (대조 화면 "근거 보기"). */
   evidence?: Record<string, unknown>;
+  /** exceptionRule 결과일 때: 어떤 기본 규칙에 대한 예외인지. */
+  exceptionOf?: string;
+  /** 기본 규칙 결과일 때: 이 규칙에 걸린 예외 규칙 id 목록 (화면 배지). */
+  appliedExceptions?: string[];
 }
 
 /** 기업 신청 건 전체 상태 (문서함 뱃지). */
@@ -79,6 +97,27 @@ export interface JudgmentHistoryRecord {
   source: 'AI' | 'HUMAN';
   corrected: boolean;
   judgedAt: string;
+  /** 담당자 승인 사유(예외 판단 근거). 저장 전 주민번호 마스킹됨. */
+  note?: string | null;
+}
+
+/**
+ * 예외 후보 1건 — "규칙에 걸렸는데 담당자가 그대로 승인한" 사례의 집계.
+ * 이걸 사람이 검토해서 docs/10 수집 양식 → 원장 exceptionRules 로 올린다.
+ * 자동 등록하지 않는다(ADR-07: 결정은 사람).
+ */
+export interface ExceptionCandidate {
+  /** COMPANY | WORKER | SUBSIDY */
+  targetType: string;
+  ruleId: string;
+  label: string;
+  /** 걸린 채로 승인된 횟수. */
+  count: number;
+  /** 서로 다른 대상(기업·근로자) 수 — 1건이면 일회성, 여러 건이면 유형일 가능성. */
+  targetCount: number;
+  lastApprovedAt: string;
+  /** 최근 승인 사유 최대 5개 (비식별). */
+  notes: string[];
 }
 
 // ──────────────────────────────────────────────

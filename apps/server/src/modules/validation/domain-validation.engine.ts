@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { DocumentTypeCode, RuleResult, RuleVerdict } from '@job-program/shared';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
 import { JobClassificationService } from './job-classification.service';
-import type { MultiDocCheck, RuleDef, RuleLedger } from './validation-rules.service';
+import type { ExceptionCondition, MultiDocCheck, RuleDef, RuleLedger } from './validation-rules.service';
 
 /** 기업 상호 정규화: 공백·법인격 토큰(㈜/(주)/주식회사 등) 제거 후 소문자. 핵심 상호만 남긴다. */
 function normalizeCompanyName(raw: unknown): string | null {
@@ -61,12 +61,131 @@ export class DomainValidationEngine {
   constructor(private readonly jobClassificationService: JobClassificationService) {}
 
   validateWithLedger(ledger: RuleLedger, input: ExtractedByDocumentType): RuleResult[] {
-    return (ledger.rules ?? []).map((rule) => this.evaluate(rule, input));
+    const base = (ledger.rules ?? []).map((rule) => this.evaluate(rule, input));
+    return this.applyExceptions(base, ledger.exceptionRules ?? [], input);
   }
 
   /** 규칙 배열을 직접 받아 실행 (6단계 companyRules/workerRules 분리 실행용). */
-  validateWithRules(rules: RuleDef[], input: ExtractedByDocumentType): RuleResult[] {
-    return rules.map((rule) => this.evaluate(rule, input));
+  validateWithRules(
+    rules: RuleDef[],
+    input: ExtractedByDocumentType,
+    exceptionRules: RuleDef[] = [],
+  ): RuleResult[] {
+    const base = rules.map((rule) => this.evaluate(rule, input));
+    return this.applyExceptions(base, exceptionRules, input);
+  }
+
+  // ── 예외 규칙 (심사③ 예외처리 축적 구조) ────────────────────────────
+  //
+  // 기본 규칙을 먼저 전부 돌린 뒤, "걸린 규칙"에 대해서만 예외를 따진다.
+  // 설계 원칙(ADR-07): 예외 규칙은 기본 결과의 판정을 바꾸지 않는다.
+  // 담당자에게 "이건 ○○ 예외로 보이니 △△를 확인하라"고 알려줄 뿐,
+  // 기계가 임의로 통과시키지 않는다.
+
+  /**
+   * 기본 결과에 예외 평가를 덧붙인다.
+   * - 조건을 만족한 예외는 결과 1건으로 추가(exceptionOf = 기본 규칙 id)
+   * - 기본 결과에는 appliedExceptions 로 표시만 하고 verdict 는 그대로 둔다
+   * - 조건을 만족하지 않으면 아무것도 추가하지 않는다(목록이 지저분해지지 않게)
+   */
+  private applyExceptions(
+    base: RuleResult[],
+    exceptionRules: RuleDef[],
+    input: ExtractedByDocumentType,
+  ): RuleResult[] {
+    if (exceptionRules.length === 0) return base;
+
+    const added: RuleResult[] = [];
+    for (const rule of exceptionRules) {
+      const failedRuleId = rule.appliesWhen?.failedRule;
+      if (!failedRuleId) continue;
+
+      const target = base.find((r) => r.ruleId === failedRuleId);
+      if (!target) continue;
+
+      const verdicts: RuleVerdict[] = rule.appliesWhen?.verdicts ?? ['NEEDS_REVIEW', 'FAIL'];
+      if (!verdicts.includes(target.verdict)) continue;
+
+      const evidence: Record<string, unknown> = {};
+      const matched = (rule.conditions ?? []).every((c) => this.matchCondition(c, input, evidence));
+      if (!matched) continue;
+
+      // PASS 로 내리는 것은 '예외를 증명하는 서류'가 실제로 있을 때만 허용한다.
+      let verdict: RuleVerdict = rule.onMatch ?? 'NEEDS_REVIEW';
+      let docNote = '';
+      if (verdict === 'PASS') {
+        const needed = rule.requiresDocument;
+        if (!needed || !input[needed]) {
+          verdict = 'NEEDS_REVIEW';
+          docNote = needed
+            ? ` 예외로 인정하려면 ${needed} 서류가 필요합니다.`
+            : ' 예외 인정 근거서류(requiresDocument)가 지정되지 않아 담당자 확인으로 둡니다.';
+        }
+      } else if (rule.requiresDocument && !input[rule.requiresDocument]) {
+        docNote = ` 확인에 ${rule.requiresDocument} 서류가 필요합니다.`;
+      }
+
+      added.push({
+        ruleId: rule.id,
+        type: 'exceptionRule',
+        label: rule.label,
+        verdict,
+        message: `${rule.guidance ?? `${target.label}에 대한 예외 조건에 해당합니다.`}${docNote}`,
+        evidence: { exceptionOf: failedRuleId, baseVerdict: target.verdict, ...evidence },
+        exceptionOf: failedRuleId,
+      });
+
+      target.appliedExceptions = [...(target.appliedExceptions ?? []), rule.id];
+    }
+
+    return [...base, ...added];
+  }
+
+  /** 예외 조건 1건 평가. evidence 에 비교값을 남겨 담당자가 근거를 볼 수 있게 한다. */
+  private matchCondition(
+    condition: ExceptionCondition,
+    input: ExtractedByDocumentType,
+    evidence: Record<string, unknown>,
+  ): boolean {
+    const { field, match } = condition;
+
+    if (match === 'exists' || match === 'notExists') {
+      const doc = condition.document;
+      if (!doc) return false;
+      const data = input[doc];
+      const raw = data ? data[field] : undefined;
+      const filled = raw != null && String(raw).trim() !== '';
+      evidence[`${doc}.${field}`] = filled ? raw : null;
+      return match === 'exists' ? filled : !filled;
+    }
+
+    const docs = condition.documents ?? [];
+    if (docs.length < 2) return false;
+
+    const values: (string | null)[] = [];
+    for (const doc of docs) {
+      const data = input[doc];
+      const raw = data ? data[field] : undefined;
+      evidence[`${doc}.${field}`] = raw ?? null;
+      values.push(this.normalizeForCondition(field, raw));
+    }
+    if (values.some((v) => v == null)) return false;
+
+    const list = values as string[];
+    if (match === 'equal') return list.every((v) => v === list[0]);
+    // similar: 한쪽이 다른 쪽을 포함하면 같은 것으로 본다(상호 표기 흔들림 대응)
+    return list.every((v, i) =>
+      list.every((w, j) => i === j || v.includes(w) || w.includes(v)),
+    );
+  }
+
+  /** 조건 비교용 정규화. 사업자번호·상호는 기존 정규화 함수를 그대로 쓴다. */
+  private normalizeForCondition(field: string, raw: unknown): string | null {
+    if (raw == null) return null;
+    if (/businessRegistrationNumber|brn/i.test(field)) return normalizeBrn(raw);
+    if (/companyName|상호/i.test(field)) return normalizeCompanyName(raw);
+    const s = String(raw).replace(/\s/g, '').toLowerCase().trim();
+    return s || null;
   }
 
   private evaluate(rule: RuleDef, input: ExtractedByDocumentType): RuleResult {
@@ -89,6 +208,15 @@ export class DomainValidationEngine {
       case 'calcRule':
         return this.calcRule(rule, input);
       case 'exceptionRule':
+        // 예외 규칙은 기본 규칙 목록이 아니라 원장의 exceptionRules 에 넣어야 평가된다.
+        // 여기로 왔다는 것은 원장 오기입이므로, 조용히 통과시키지 않고 담당자에게 알린다.
+        return {
+          ruleId: rule.id,
+          type: rule.type,
+          label: rule.label,
+          verdict: 'NEEDS_REVIEW',
+          message: '예외 규칙은 원장의 exceptionRules 에 등록해야 평가됩니다(원장 확인 필요).',
+        };
       default:
         return {
           ruleId: rule.id,

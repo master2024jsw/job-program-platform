@@ -7,6 +7,7 @@ import {
   type RuleVerdict,
 } from '@job-program/shared';
 import { validationApi } from '../api/validation';
+import { ApprovalReasonField, ExceptionBadges } from './ApprovalReasonField';
 
 function statusBadgeClass(status: string): string {
   if (status === 'COMPLETE') return 'badge-active';
@@ -53,6 +54,8 @@ export function CompanyValidationPanel({ businessId, companyId }: { businessId: 
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [openEvidence, setOpenEvidence] = useState<Record<string, boolean>>({});
+  /** 걸린 규칙을 그대로 승인할 때의 사유 — 판정 이력에 남아 예외 후보가 된다(심사③). */
+  const [overrideReason, setOverrideReason] = useState('');
 
   const applyResult = useCallback((data: CompanyValidationResult) => {
     setResult(data);
@@ -93,7 +96,7 @@ export function CompanyValidationPanel({ businessId, companyId }: { businessId: 
     setApproving(true);
     setError(null);
     try {
-      applyResult(await validationApi.approveCompany(companyId, businessId, form));
+      applyResult(await validationApi.approveCompany(companyId, businessId, form, overrideReason));
       window.alert('승인 완료: 대장(참여기업 관리)에 반영했습니다.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '승인에 실패했습니다.');
@@ -156,6 +159,7 @@ export function CompanyValidationPanel({ businessId, companyId }: { businessId: 
               <tr key={r.ruleId}>
                 <td>
                   {r.ruleId} · {r.label}
+                  <ExceptionBadges rule={r} />
                 </td>
                 <td>
                   <span className={`badge ${verdictBadgeClass(r.verdict)}`}>{VERDICT_LABEL[r.verdict]}</span>
@@ -304,6 +308,7 @@ export function CompanyValidationPanel({ businessId, companyId }: { businessId: 
             />
           </div>
         </div>
+        <ApprovalReasonField rules={result.rules} value={overrideReason} onChange={setOverrideReason} />
         <div className="form-actions">
           <button className="btn btn-primary" disabled={approving} onClick={handleApprove}>
             {approving ? '승인 중...' : '승인 → 대장 반영'}

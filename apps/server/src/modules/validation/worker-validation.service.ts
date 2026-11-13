@@ -23,6 +23,7 @@ import { JudgmentHistoryService } from './judgment-history.service';
 import { deriveWorkerNextActions } from './next-actions';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
 import type { ApproveWorkerDto } from './dto/approve-worker.dto';
+import { sanitizeApprovalReason } from '../../common/masking.util';
 
 const TARGET_WORKER = 'WORKER';
 
@@ -341,6 +342,7 @@ export class WorkerValidationService {
       result: result.rules,
       source: 'HUMAN',
       corrected: true,
+      note: sanitizeApprovalReason(dto.overrideReason),
     });
 
     this.logger.log(`근로자(${worker.name}, ${workerId}) 승인 완료 — 상태: ${result.status}`);

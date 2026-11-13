@@ -25,6 +25,7 @@ import { JudgmentHistoryService } from './judgment-history.service';
 import { deriveSubsidyNextActions } from './next-actions';
 import type { ExtractedByDocumentType } from '../../common/domain-validation-engine.interface';
 import type { ApproveSubsidyDto } from './dto/approve-subsidy.dto';
+import { sanitizeApprovalReason } from '../../common/masking.util';
 
 const TARGET_SUBSIDY = 'SUBSIDY';
 
@@ -112,7 +113,11 @@ export class SubsidyValidationService {
 
     // 기업 단위 규칙 실행
     const companyRuleResults: RuleResult[] = ledger
-      ? this.engine.validateWithRules(ledger.companyRules ?? [], companyByType)
+      ? this.engine.validateWithRules(
+          ledger.companyRules ?? [],
+          companyByType,
+          ledger.companyExceptionRules ?? [],
+        )
       : [];
 
     // 근로자 목록 조회 (해당 기업 + 사업)
@@ -180,7 +185,11 @@ export class SubsidyValidationService {
 
       // 근로자 단위 규칙 실행
       const workerRules = ledger
-        ? this.engine.validateWithRules(ledger.workerRules ?? [], workerByType)
+        ? this.engine.validateWithRules(
+            ledger.workerRules ?? [],
+            workerByType,
+            ledger.workerExceptionRules ?? [],
+          )
         : [];
 
       // 지원금 회차 산정 (SUBSIDY_CALCULATION entries → SubsidyRound 배열)
@@ -303,6 +312,7 @@ export class SubsidyValidationService {
       result: result.rules,
       source: 'HUMAN',
       corrected: true,
+      note: sanitizeApprovalReason(dto.overrideReason),
     });
     this.logger.log(`지원금 승인(기업 ${dto.companyId}) — 상태: ${result.status}`);
     return result;

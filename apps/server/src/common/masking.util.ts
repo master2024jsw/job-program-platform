@@ -36,3 +36,12 @@ export function maskDeep<T>(value: T): T {
   }
   return value;
 }
+
+/**
+ * 담당자 승인 사유 정리 — 저장 전 주민번호 마스킹 + 공백만이면 null.
+ * 사유 칸은 자유 입력이라 개인정보가 섞일 수 있으므로 저장 경로에서 한 번 더 가린다.
+ */
+export function sanitizeApprovalReason(raw?: string | null): string | null {
+  const text = maskResidentNumbers((raw ?? '').trim());
+  return text || null;
+}

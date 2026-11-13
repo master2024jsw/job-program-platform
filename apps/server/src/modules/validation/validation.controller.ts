@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import type {
   ApiResponse,
   CompanyValidationResult,
+  ExceptionCandidate,
   JudgmentHistoryRecord,
   SubsidyValidationResult,
   WorkerSubsidyValidationResult,
@@ -13,6 +14,7 @@ import { SubsidyValidationService } from './subsidy-validation.service';
 import { ApproveCompanyDto } from './dto/approve-company.dto';
 import { ApproveWorkerDto } from './dto/approve-worker.dto';
 import { ApproveSubsidyDto } from './dto/approve-subsidy.dto';
+import { JudgmentHistoryService } from './judgment-history.service';
 import type { JudgmentHistory } from './judgment-history.entity';
 
 @Controller('validation')
@@ -21,7 +23,23 @@ export class ValidationController {
     private readonly validationService: ValidationService,
     private readonly workerValidationService: WorkerValidationService,
     private readonly subsidyValidationService: SubsidyValidationService,
+    private readonly judgmentHistoryService: JudgmentHistoryService,
   ) {}
+
+  // ── 예외 후보 (심사③ 예외처리 축적) ────────────────────────────────
+
+  /**
+   * "규칙에 걸렸는데 담당자가 그대로 승인한" 사례 집계.
+   * 예외 규칙을 만들 재료를 담당자에게 보여 주기만 한다 — 자동 등록하지 않는다.
+   * 권한은 전역 BusinessAccessGuard 가 쿼리의 businessId 로 검사한다.
+   */
+  @Get('exception-candidates')
+  async exceptionCandidates(
+    @Query('businessId') businessId: string,
+  ): Promise<ApiResponse<ExceptionCandidate[]>> {
+    const bid = this.validationService.assertBusinessId(businessId);
+    return { success: true, data: await this.judgmentHistoryService.exceptionCandidates(bid) };
+  }
 
   // ── 기업 신청 (4단계) ──────────────────────────────────────────────
 
@@ -42,7 +60,12 @@ export class ValidationController {
     @Param('companyId') companyId: string,
     @Body() dto: ApproveCompanyDto,
   ): Promise<ApiResponse<CompanyValidationResult>> {
-    const data = await this.validationService.approveCompany(dto.businessId, companyId, dto.reviewed);
+    const data = await this.validationService.approveCompany(
+      dto.businessId,
+      companyId,
+      dto.reviewed,
+      dto.overrideReason,
+    );
     return { success: true, data };
   }
 
@@ -137,6 +160,7 @@ export class ValidationController {
       source: h.source,
       corrected: h.corrected,
       judgedAt: h.judgedAt.toISOString(),
+      note: h.note ?? null,
     }));
   }
 }

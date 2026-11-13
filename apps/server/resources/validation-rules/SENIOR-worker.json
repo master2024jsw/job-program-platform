@@ -167,5 +167,6 @@
       "documents": ["LABOR_CONTRACT", "COMPANY_CONTEXT"],
       "onMismatch": "NEEDS_REVIEW"
     }
-  ]
+  ],
+  "exceptionRules": []
 }

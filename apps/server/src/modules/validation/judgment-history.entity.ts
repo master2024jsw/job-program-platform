@@ -35,6 +35,14 @@ export class JudgmentHistory {
   @Column({ type: 'boolean', default: false })
   corrected!: boolean;
 
+  /**
+   * 담당자 승인 사유(예외 판단 근거) — 심사③ 예외처리 축적의 원재료.
+   * 화면에서 "개인정보는 적지 마세요"로 안내하고, 저장 전 주민번호는 마스킹한다.
+   * (개발환경은 synchronize:true 라 컬럼이 자동 추가된다. 운영 전환 시 마이그레이션 필요 — F09)
+   */
+  @Column({ type: 'text', nullable: true })
+  note!: string | null;
+
   @CreateDateColumn({ name: 'judged_at' })
   judgedAt!: Date;
 }

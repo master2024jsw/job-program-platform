@@ -8,6 +8,7 @@ import {
 } from '@job-program/shared';
 import { validationApi } from '../api/validation';
 import { NextActionList } from './NextActionList';
+import { ApprovalReasonField, ExceptionBadges } from './ApprovalReasonField';
 
 
 function statusBadgeClass(status: string): string {
@@ -55,6 +56,8 @@ export function WorkerValidationPanel({
   const [error, setError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [openEvidence, setOpenEvidence] = useState<Record<string, boolean>>({});
+  /** 걸린 규칙을 그대로 승인할 때의 사유 — 판정 이력에 남아 예외 후보가 된다(심사③). */
+  const [overrideReason, setOverrideReason] = useState('');
 
   const applyResult = useCallback((data: WorkerValidationResult) => {
     setResult(data);
@@ -90,7 +93,13 @@ export function WorkerValidationPanel({
     setApproving(true);
     setError(null);
     try {
-      const approved = await validationApi.approveWorker(workerId, businessId, companyId, form);
+      const approved = await validationApi.approveWorker(
+        workerId,
+        businessId,
+        companyId,
+        form,
+        overrideReason,
+      );
       applyResult(approved);
       // 신청단계가 실제로 올라갔는지 그대로 알린다.
       // 전에는 무조건 "승인 완료"라고 해서, 상태가 그대로인데도 끝난 것처럼 보였다.
@@ -169,6 +178,7 @@ export function WorkerValidationPanel({
               <tr key={r.ruleId}>
                 <td>
                   {r.ruleId} · {r.label}
+                  <ExceptionBadges rule={r} />
                 </td>
                 <td>
                   <span className={`badge ${verdictBadgeClass(r.verdict)}`}>{VERDICT_LABEL[r.verdict]}</span>
@@ -305,6 +315,7 @@ export function WorkerValidationPanel({
             />
           </div>
         </div>
+        <ApprovalReasonField rules={result.rules} value={overrideReason} onChange={setOverrideReason} />
         <div className="form-actions">
           <button className="btn btn-primary" disabled={approving} onClick={handleApprove}>
             {approving ? '승인 중...' : '승인 → 대장 반영'}

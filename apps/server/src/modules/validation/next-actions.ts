@@ -179,8 +179,27 @@ export function deriveWorkerNextActions(input: WorkerNextActionInput): NextActio
     // (설계서 §10.4 의 INSUFFICIENT_DATA·NOT_APPLICABLE 이 추가되면 여기 분기도 같이 늘려야 한다.)
     if (rule.verdict === 'PASS') continue;
 
-    const guide = WORKER_RULE_GUIDE[rule.ruleId] ?? GENERIC_GUIDE;
     const isFail = rule.verdict === 'FAIL';
+
+    // 예외 규칙 결과는 "걸렸다"가 아니라 "이런 예외로 보인다"는 안내다.
+    // 어디서 고치는지는 원래 걸린 기본 규칙의 동선을 그대로 쓴다.
+    if (rule.exceptionOf) {
+      const baseGuide = WORKER_RULE_GUIDE[rule.exceptionOf] ?? GENERIC_GUIDE;
+      actions.push({
+        code: `EXCEPTION:${rule.ruleId}`,
+        // 명세는 REVIEW 로 두지만, 예외 결과가 FAIL 이면 승인 자체가 막히므로 BLOCKER 로 올린다.
+        // (안내는 "확인 후 승인"인데 승인이 안 되는 상태를 만들지 않기 위함)
+        severity: isFail ? 'BLOCKER' : 'REVIEW',
+        subject: `예외 후보: ${rule.label}`,
+        detail: rule.message || rule.label,
+        where: baseGuide.where,
+        then: '예외 근거를 확인한 뒤 승인 사유를 남기고 승인하세요.',
+        ruleId: rule.ruleId,
+      });
+      continue;
+    }
+
+    const guide = WORKER_RULE_GUIDE[rule.ruleId] ?? GENERIC_GUIDE;
 
     actions.push({
       code: `RULE:${rule.ruleId}`,
@@ -358,6 +377,21 @@ export function deriveSubsidyNextActions(input: SubsidyNextActionInput): NextAct
 
   for (const rule of input.rules) {
     if (rule.verdict === 'PASS') continue;
+    // 예외 규칙 결과 — 기본 규칙의 동선을 그대로 쓰고, 승인 사유를 남기도록 안내한다.
+    if (rule.exceptionOf) {
+      const baseGuide = SUBSIDY_RULE_GUIDE[rule.exceptionOf] ?? SUBSIDY_GENERIC_GUIDE;
+      actions.push({
+        code: `EXCEPTION:${rule.ruleId}`,
+        severity: rule.verdict === 'FAIL' ? 'BLOCKER' : 'REVIEW',
+        subject: `예외 후보: ${rule.label}`,
+        detail: rule.message || rule.label,
+        where: baseGuide.where,
+        then: '예외 근거를 확인한 뒤 승인 사유를 남기고 승인하세요.',
+        ruleId: rule.ruleId,
+      });
+      continue;
+    }
+
     const guide = SUBSIDY_RULE_GUIDE[rule.ruleId] ?? SUBSIDY_GENERIC_GUIDE;
     const isFail = rule.verdict === 'FAIL';
     actions.push({
