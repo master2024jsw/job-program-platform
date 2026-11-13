@@ -162,6 +162,23 @@
       "onFail": "NEEDS_REVIEW"
     }
   ],
-  "companyExceptionRules": [],
+  "companyExceptionRules": [
+    {
+      "id": "R-308c-E1",
+      "type": "exceptionRule",
+      "label": "계좌 압류로 사업체 명의 계좌에 입금할 수 없는 경우",
+      "appliesWhen": { "failedRule": "R-308c", "verdicts": ["NEEDS_REVIEW", "FAIL"] },
+      "conditions": [],
+      "onMatch": "NEEDS_REVIEW",
+      "guidance": "통장 예금주가 기업 상호와 다릅니다. 기업 계좌가 압류되어 다른 계좌를 제출한 경우일 수 있습니다. 압류 사실과 제3자 지급이 가능한지 확인하세요(압류 관련 통지, 관할 고용센터 질의). 압류가 아니라 단순 오기·오제출이면 사업체 명의 통장사본을 다시 받으세요. 확인 경위를 승인 사유에 남기세요. ※ 제3자 지급 인정 요건과 필요 서류는 담당자 확인 후 보완 예정입니다.",
+      "source": {
+        "kind": "실무경험",
+        "note": "2026-11-14 담당자가 실제 겪은 상황으로 확인. 설계서 docs/01 §예외처리 항목에도 예정 사례로 기재. 탐지 조건만 우선 등록하고, 제3자 지급 인정 요건은 추가 기록 후 보완한다.",
+        "registeredBy": "정세원",
+        "registeredAt": "2026-11-14"
+      },
+      "version": 1
+    }
+  ],
   "workerExceptionRules": []
 }

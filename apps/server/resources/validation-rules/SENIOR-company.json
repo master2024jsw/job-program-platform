@@ -103,5 +103,25 @@
       "onMissing": "NEEDS_REVIEW"
     }
   ],
-  "exceptionRules": []
+  "exceptionRules": [
+    {
+      "id": "R-101-E1",
+      "type": "exceptionRule",
+      "label": "사업 기간 중 법인전환으로 사업자등록번호가 달라진 경우",
+      "appliesWhen": { "failedRule": "R-101", "verdicts": ["NEEDS_REVIEW", "FAIL"] },
+      "conditions": [
+        { "field": "representativeName", "match": "equal", "documents": ["COMPANY_APPLICATION", "BUSINESS_REGISTRATION"] },
+        { "field": "companyName", "match": "similar", "documents": ["COMPANY_APPLICATION", "BUSINESS_REGISTRATION"] }
+      ],
+      "onMatch": "NEEDS_REVIEW",
+      "guidance": "사업자등록번호는 다르지만 대표자가 같고 상호가 유사합니다 — 사업 기간 중 개인사업자에서 법인으로 전환한 경우일 수 있습니다. 법인전환 사실과 동일 사업장 승계 여부를 확인하세요(전·후 사업자등록증, 법인 등기사항증명서, 4대보험 사업장 승계 내역). 확인 경위를 승인 사유에 남기세요. ※ 확인 후 처리 기준은 담당자 확인 후 보완 예정입니다.",
+      "source": {
+        "kind": "실무경험",
+        "note": "2026-11-14 담당자가 실제 겪은 상황으로 확인. 설계서 docs/01 §예외처리 항목에도 예정 사례로 기재. 탐지 조건만 우선 등록하고, 확인 후 처리 기준(승계 인정 요건·필요 서류)은 추가 기록 후 보완한다.",
+        "registeredBy": "정세원",
+        "registeredAt": "2026-11-14"
+      },
+      "version": 1
+    }
+  ]
 }
