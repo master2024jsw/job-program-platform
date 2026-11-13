@@ -11,12 +11,18 @@ const resourcesDir = path.join(process.cwd(), 'resources');
  * exists/notExists 는 document 하나의 field 가 채워져 있는지만 본다.
  */
 export interface ExceptionCondition {
-  /** 생략 시 documents 로 비교. exists/notExists 에서는 이 서류를 본다. */
+  /** 생략 시 documents 로 비교. exists/notExists/containsAny 에서는 이 서류를 본다. */
   document?: DocumentTypeCode;
   field: string;
-  match: 'equal' | 'similar' | 'exists' | 'notExists';
+  match: 'equal' | 'similar' | 'exists' | 'notExists' | 'containsAny';
   /** equal/similar: 비교 대상 서류 (2개 이상). */
   documents?: DocumentTypeCode[];
+  /**
+   * containsAny: 이 중 하나라도 값에 포함되면 참 (공백 제거·소문자 비교).
+   * 지침에 규정이 없어 키워드로밖에 잡을 수 없는 항목(업종·주소 등)에 쓴다.
+   * 키워드는 단서일 뿐이므로 이 조건만으로 판정하지 않고 담당자 확인으로 넘긴다.
+   */
+  keywords?: string[];
 }
 
 /** riskFlag multiDocumentChecks 항목 1건. */

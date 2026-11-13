@@ -149,6 +149,24 @@ export class DomainValidationEngine {
   ): boolean {
     const { field, match } = condition;
 
+    if (match === 'containsAny') {
+      const doc = condition.document;
+      const words = condition.keywords ?? [];
+      if (!doc || words.length === 0) return false;
+      const data = input[doc];
+      const raw = data ? data[field] : undefined;
+      if (raw == null) return false;
+      const text = String(raw).replace(/\s/g, '').toLowerCase();
+      const hit = words.find((w) => {
+        const needle = String(w).replace(/\s/g, '').toLowerCase();
+        return needle !== '' && text.includes(needle);
+      });
+      // 담당자가 왜 걸렸는지 알 수 있게 원문과 걸린 키워드를 같이 남긴다.
+      evidence[`${doc}.${field}`] = raw;
+      if (hit) evidence[`${doc}.${field}.matched`] = hit;
+      return hit != null;
+    }
+
     if (match === 'exists' || match === 'notExists') {
       const doc = condition.document;
       if (!doc) return false;

@@ -23,7 +23,10 @@ const SCHEMA_BY_TYPE: Partial<Record<DocumentTypeCode, string>> = {
   // "공란"이라고 missingItems 에 적는 일이 생긴다(실제로 발생했음).
   WORKPLACE_INSURANCE:
     'businessRegistrationNumber, companyName(사업장 명칭 — 표의 행마다 반복되어 있으니 첫 행에서 읽어라), representativeName(대표자 — 표의 행마다 반복), nationalPension·healthInsurance·industrialAccident·employmentInsurance(각각 "가입"/"미가입")',
-  BUSINESS_REGISTRATION: 'businessRegistrationNumber, companyName(상호), representativeName(대표자)',
+  // address·businessType·businessItem 은 공유오피스 의심 현장확인 규칙(R-104-E1)에서 쓴다.
+  // 지침에 사업장 장소 규정이 없어 업태·종목과 주소 표기로밖에 단서를 잡을 수 없다.
+  BUSINESS_REGISTRATION:
+    'businessRegistrationNumber, companyName(상호), representativeName(대표자), address(사업장 소재지 — 서류에 적힌 전체 주소를 그대로, 동·호수까지 포함해서), businessType(업태), businessItem(종목)',
   // 5단계 근로자신청 서류
   WORKER_APPLICATION:
     'name(성명), residentNumber(주민등록번호 — "######-#######" 형식으로 추출, 뒤 7자리는 마스킹되어 있을 수 있음), phone(연락처), applicantSignature(신청인 서명 있음: true/false), counselorName(상담자 성명)',

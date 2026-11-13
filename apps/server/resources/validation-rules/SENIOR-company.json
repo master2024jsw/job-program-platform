@@ -31,7 +31,10 @@
     "BUSINESS_REGISTRATION": [
       "businessRegistrationNumber",
       "companyName",
-      "representativeName"
+      "representativeName",
+      "address",
+      "businessType",
+      "businessItem"
     ]
   },
   "rules": [
@@ -108,16 +111,112 @@
       "id": "R-101-E1",
       "type": "exceptionRule",
       "label": "사업 기간 중 법인전환으로 사업자등록번호가 달라진 경우",
-      "appliesWhen": { "failedRule": "R-101", "verdicts": ["NEEDS_REVIEW", "FAIL"] },
+      "appliesWhen": {
+        "failedRule": "R-101",
+        "verdicts": [
+          "NEEDS_REVIEW",
+          "FAIL"
+        ]
+      },
       "conditions": [
-        { "field": "representativeName", "match": "equal", "documents": ["COMPANY_APPLICATION", "BUSINESS_REGISTRATION"] },
-        { "field": "companyName", "match": "similar", "documents": ["COMPANY_APPLICATION", "BUSINESS_REGISTRATION"] }
+        {
+          "field": "representativeName",
+          "match": "equal",
+          "documents": [
+            "COMPANY_APPLICATION",
+            "BUSINESS_REGISTRATION"
+          ]
+        },
+        {
+          "field": "companyName",
+          "match": "similar",
+          "documents": [
+            "COMPANY_APPLICATION",
+            "BUSINESS_REGISTRATION"
+          ]
+        }
       ],
       "onMatch": "NEEDS_REVIEW",
       "guidance": "사업자등록번호는 다르지만 대표자가 같고 상호가 유사합니다 — 사업 기간 중 개인사업자에서 법인으로 전환한 경우일 수 있습니다. 법인전환 사실과 동일 사업장 승계 여부를 확인하세요(전·후 사업자등록증, 법인 등기사항증명서, 4대보험 사업장 승계 내역). 확인 경위를 승인 사유에 남기세요. ※ 확인 후 처리 기준은 담당자 확인 후 보완 예정입니다.",
       "source": {
         "kind": "실무경험",
         "note": "2026-11-14 담당자가 실제 겪은 상황으로 확인. 설계서 docs/01 §예외처리 항목에도 예정 사례로 기재. 탐지 조건만 우선 등록하고, 확인 후 처리 기준(승계 인정 요건·필요 서류)은 추가 기록 후 보완한다.",
+        "registeredBy": "정세원",
+        "registeredAt": "2026-11-14"
+      },
+      "version": 1
+    },
+    {
+      "id": "R-104-E1",
+      "type": "exceptionRule",
+      "label": "사무실 업종 + 공유오피스 의심 주소 — 현장확인 필요",
+      "appliesWhen": {
+        "failedRule": "R-104",
+        "verdicts": [
+          "PASS",
+          "NEEDS_REVIEW",
+          "FAIL"
+        ]
+      },
+      "conditions": [
+        {
+          "field": "businessType",
+          "match": "containsAny",
+          "document": "BUSINESS_REGISTRATION",
+          "keywords": [
+            "컨설팅",
+            "경영컨설팅",
+            "정보통신",
+            "소프트웨어",
+            "IT",
+            "it서비스",
+            "시스템통합",
+            "응용소프트웨어",
+            "사무지원",
+            "경영지원",
+            "사무서비스",
+            "광고",
+            "디자인",
+            "번역",
+            "교육서비스",
+            "도매",
+            "전자상거래",
+            "서비스업"
+          ]
+        },
+        {
+          "field": "address",
+          "match": "containsAny",
+          "document": "BUSINESS_REGISTRATION",
+          "keywords": [
+            "공유오피스",
+            "공유사무실",
+            "셰어오피스",
+            "쉐어오피스",
+            "비즈니스센터",
+            "비즈니스타워",
+            "위워크",
+            "wework",
+            "패스트파이브",
+            "fastfive",
+            "스파크플러스",
+            "sparkplus",
+            "르호봇",
+            "리저스",
+            "regus",
+            "오피스허브",
+            "소호사무실",
+            "창업보육센터",
+            "1인창조기업",
+            "스타트업캠퍼스"
+          ]
+        }
+      ],
+      "onMatch": "NEEDS_REVIEW",
+      "guidance": "사업자등록증의 업태·종목이 사무실에서 하는 업종이고(컨설팅·IT·사무지원 등), 사업장 소재지가 공유오피스·비즈니스센터로 의심되는 주소입니다. 지침에는 사업장의 장소에 관한 규정이 없으므로 서류만으로는 판단할 수 없습니다. 반드시 현장확인을 나가 실제로 그 장소에서 업무가 이루어지는지 확인하세요 — 상시 근무 인원, 참여자의 책상·장비, 사업장 표기(간판·호실), 공유오피스 계약 형태(지정석·비지정석). 확인 결과를 승인 사유에 남기세요. 주소 표기만으로 걸린 것일 수 있으니 실제 사업장이면 그대로 승인하면 됩니다. 반대로 이 규칙에 걸리지 않아도 안심하지 마세요 — 상호·호실만 적힌 주소나 지식산업센터는 키워드로 잡히지 않으므로 담당자가 따로 보셔야 합니다.",
+      "source": {
+        "kind": "실무경험",
+        "note": "2026-11-14 담당자 등록. 지침에 사업장 장소 규정이 없어 공식 요건으로는 걸러지지 않지만, 사무실 업종 + 공유오피스 주소는 실제 근무 여부를 현장에서 확인해야 하는 사안이다. 업태·종목·주소 키워드는 단서일 뿐이므로 판정을 바꾸지 않고 현장확인 안내만 한다. 주소 키워드는 공유오피스를 명시한 표기만 넣었다(일반 '○○호·○층' 표기는 대부분 기업에 걸려 소용이 없음).",
         "registeredBy": "정세원",
         "registeredAt": "2026-11-14"
       },

@@ -199,6 +199,58 @@ describe('DomainValidationEngine — 예외 규칙', () => {
     expect(results).toHaveLength(1);
   });
 
+  // containsAny: 지침에 규정이 없어 키워드로밖에 잡을 수 없는 항목(업종·주소)용.
+  // 키워드가 너무 넓으면 모든 건에 걸려 쓸모가 없어지므로, '안 걸리는 경우'를 같이 고정한다.
+  describe('containsAny 조건', () => {
+    const officeThenSiteVisit: RuleDef = {
+      id: 'X-05',
+      type: 'exceptionRule',
+      label: '사무실 업종 + 공유오피스 의심 주소',
+      appliesWhen: { failedRule: 'R-101', verdicts: ['PASS', 'NEEDS_REVIEW', 'FAIL'] },
+      conditions: [
+        { document: BRN, field: 'businessItem', match: 'containsAny', keywords: ['컨설팅', 'IT'] },
+        { document: BRN, field: 'address', match: 'containsAny', keywords: ['공유오피스', '패스트파이브'] },
+      ],
+    };
+
+    function run(reg: Record<string, unknown>) {
+      return engine.validateWithLedger(ledgerOf([baseCrossCheck], [officeThenSiteVisit]), {
+        ...mismatchedInput,
+        [BRN]: { ...(mismatchedInput[BRN] as object), ...reg },
+      });
+    }
+
+    it('업종·주소 키워드가 모두 걸리면 발화한다 (띄어쓰기·대소문자 무시)', () => {
+      const hit = run({ businessItem: '경영 컨설팅', address: '대구 중구 1, 5층 패스트파이브 512호' });
+      const exception = hit.find((r) => r.ruleId === 'X-05');
+      expect(exception?.verdict).toBe('NEEDS_REVIEW');
+      // 담당자가 왜 걸렸는지 알 수 있게 걸린 키워드를 근거에 남긴다
+      expect(exception?.evidence).toMatchObject({ [`${BRN}.address.matched`]: '패스트파이브' });
+    });
+
+    it('주소가 일반 상가면 발화하지 않는다', () => {
+      expect(run({ businessItem: '경영컨설팅', address: '대구 중구 1, 5층 512호' })).toHaveLength(1);
+    });
+
+    it('업종이 다르면 주소가 걸려도 발화하지 않는다', () => {
+      expect(run({ businessItem: '금속가공', address: '대구 달서구 1 공유오피스' })).toHaveLength(1);
+    });
+
+    it('항목이 추출되지 않은 과거 데이터에서는 발화하지 않는다', () => {
+      expect(run({})).toHaveLength(1);
+    });
+
+    it('키워드가 비어 있으면 참으로 처리하지 않는다', () => {
+      const noKeywords: RuleDef = {
+        ...officeThenSiteVisit,
+        id: 'X-06',
+        conditions: [{ document: BRN, field: 'address', match: 'containsAny', keywords: [] }],
+      };
+      const results = engine.validateWithLedger(ledgerOf([baseCrossCheck], [noKeywords]), mismatchedInput);
+      expect(results).toHaveLength(1);
+    });
+  });
+
   it('예외 규칙이 기본 규칙 목록에 잘못 들어가면 조용히 통과시키지 않는다', () => {
     const misplaced: RuleDef = {
       id: 'X-04',
