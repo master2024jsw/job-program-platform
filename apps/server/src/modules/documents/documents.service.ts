@@ -180,11 +180,14 @@ export class DocumentsService {
     'RESIDENT_ABSTRACT',
     'EMPLOYMENT_INSURANCE_HISTORY',
     'HEALTH_INSURANCE_HISTORY',
-    'ELIGIBILITY_CONFIRM',
     'INSURANCE_ROSTER',
   ];
-  // PRIVACY_CONSENT(개인정보동의서)는 빼 두었다 — 실데이터 확인 결과 주민번호 없이
-  // 이름·서명만 있는 양식이어서, 목록에 넣으면 정상 서류가 매번 차단된다(2026-11-14 확인).
+  // 아래 유형은 **일부러 뺐다.** 주민등록번호 대신 **생년월일**을 적는 양식이라,
+  // 목록에 넣으면 정상 서류가 매번 차단된다. 실제 서류로 확인한 결과다(2026-11-14).
+  //   - PRIVACY_CONSENT(개인정보 수집·이용 동의서): 성명 + 생년월일
+  //   - ELIGIBILITY_CONFIRM(참여자격 확인서): 성명 + 생년월일
+  // 이 유형에도 주민번호가 적혀 있으면 일반 탐지 경로가 찾아서 가린다 —
+  // 게이트에서 뺀 것은 "없을 때 막지 않는다"는 뜻일 뿐이다.
 
   private async analyzeScanned(
     pdfPath: string,
