@@ -39,3 +39,7 @@ Thumbs.db
 
 # claude code local settings
 .claude/settings.local.json
+
+# OCR 언어데이터 압축 해제본 (tesseract.js 가 cwd 에 풀어놓는 경우 방지)
+*.traineddata
+!apps/server/resources/tessdata/*.traineddata.gz

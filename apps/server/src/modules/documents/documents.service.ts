@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as fs from 'fs/promises';
@@ -22,6 +23,7 @@ import { GeminiService } from './gemini.service';
 import { FileConversionService } from './file-conversion.service';
 import { FileRouterService } from './file-router.service';
 import { extractPdfAnnotationTexts, buildAnnotationHint } from './pdf-annotations.util';
+import { ScanRedactionService, OCR_FAILURE_THRESHOLD } from './scan-redaction.service';
 import { effectiveDocumentData } from './document-data.util';
 
 /** 사업자등록번호를 000-00-00000 형식으로 정규화 (10자리 아니면 null). */
@@ -141,7 +143,109 @@ export class DocumentsService {
     private readonly workerValidationService: WorkerValidationService,
     private readonly fileRouterService: FileRouterService,
     private readonly companyStageService: CompanyStageService,
+    private readonly scanRedactionService: ScanRedactionService,
+    private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * 스캔 PDF(글자가 이미지라 텍스트 마스킹이 통하지 않는 서류)를 외부 AI에 보낼 때의 정책.
+   * `.env` 의 `AI_SCAN_PDF_POLICY` 로 바꾼다.
+   * - `redact`(기본): 주민번호 뒤 6자리를 덮은 페이지 이미지만 보낸다. OCR이 글자를 거의
+   *   못 읽었으면(가릴 위치를 모르는 상태) 보내지 않고 분석을 실패로 돌린다.
+   * - `block`: 스캔 서류는 아예 보내지 않는다.
+   * - `raw`: 원본 PDF를 그대로 보낸다 (2026-11-14 이전 동작 — 주민번호가 평문으로 나간다).
+   */
+  private scanPolicy(): 'redact' | 'block' | 'raw' {
+    const raw = (this.configService.get<string>('AI_SCAN_PDF_POLICY') ?? 'redact').trim().toLowerCase();
+    return raw === 'block' || raw === 'raw' ? raw : 'redact';
+  }
+
+  /**
+   * 스캔 PDF를 정책에 따라 분석한다.
+   *
+   * 기본(`redact`)은 "가린 이미지만 보낸다". 가릴 위치를 모르는 상태(OCR이 글자를 거의 못 읽음)면
+   * 보내지 않고 실패로 돌린다 — 못 가린 것을 가린 것처럼 취급하지 않는다(설계서 §10.4).
+   * 담당자가 그래도 보내야 하면 `.env` 의 `AI_SCAN_PDF_POLICY=raw` 로 바꿀 수 있다.
+   */
+  /**
+   * 주민등록번호가 적혀 있는 것이 정상인 서류유형.
+   *
+   * 이 유형인데 가린 번호가 0건이면 "번호가 없는 서류"가 아니라 **OCR이 못 찾은 것**으로 본다.
+   * 못 찾았는데 보내면 평문으로 나가므로, 그 경우 전송하지 않는다
+   * (설계서 §10.4 — 모르는 것을 통과로 집계하지 않는다).
+   */
+  private static readonly RRN_EXPECTED_DOC_TYPES: DocumentTypeCode[] = [
+    'WORKER_APPLICATION',
+    'PARTICIPANT_APPLICATION',
+    'RESIDENT_ABSTRACT',
+    'EMPLOYMENT_INSURANCE_HISTORY',
+    'HEALTH_INSURANCE_HISTORY',
+    'ELIGIBILITY_CONFIRM',
+    'INSURANCE_ROSTER',
+  ];
+  // PRIVACY_CONSENT(개인정보동의서)는 빼 두었다 — 실데이터 확인 결과 주민번호 없이
+  // 이름·서명만 있는 양식이어서, 목록에 넣으면 정상 서류가 매번 차단된다(2026-11-14 확인).
+
+  private async analyzeScanned(
+    pdfPath: string,
+    prompt: string | undefined,
+    assignedType: DocumentTypeCode | null,
+    annotationHint: string,
+  ): Promise<Record<string, unknown>> {
+    const policy = this.scanPolicy();
+
+    if (policy === 'raw') {
+      this.logger.warn(
+        `[스캔 비식별 생략] AI_SCAN_PDF_POLICY=raw — 원본 PDF를 그대로 전송합니다(주민번호 평문). ${path.basename(pdfPath)}`,
+      );
+      return this.geminiService.extractFromPdf(pdfPath, prompt, assignedType, annotationHint);
+    }
+
+    if (policy === 'block') {
+      throw new BadRequestException(
+        '스캔 서류는 외부 AI로 보내지 않도록 설정되어 있습니다(AI_SCAN_PDF_POLICY=block). ' +
+          '주민번호를 가린 사본을 올리거나, 담당자에게 설정 변경을 요청하세요.',
+      );
+    }
+
+    const result = await this.scanRedactionService.redact(pdfPath);
+
+    if (result.ocrChars < OCR_FAILURE_THRESHOLD) {
+      throw new BadRequestException(
+        '스캔 서류에서 글자를 인식하지 못해 주민번호를 가릴 위치를 찾을 수 없었습니다. ' +
+          '가리지 않은 원본을 외부 AI로 보내지 않기 위해 분석을 중단했습니다. ' +
+          '더 선명한 스캔본을 올리거나, 주민번호를 가린 사본을 올려 주세요.',
+      );
+    }
+
+    // 안전 불변식: 읽힌 주민번호 수보다 가린 수가 적으면, 못 가린 번호가 남아 있다.
+    if (result.rrnLikeRuns > result.redactions) {
+      throw new BadRequestException(
+        `주민등록번호로 보이는 숫자 ${result.rrnLikeRuns}건 중 ${result.redactions}건만 가릴 위치를 찾았습니다. ` +
+          '가리지 못한 번호가 남은 상태로 외부 AI에 보내지 않기 위해 분석을 중단했습니다. ' +
+          '더 선명한 스캔본을 올리거나, 주민번호를 가린 사본을 올려 주세요.',
+      );
+    }
+
+    // 가린 것이 0건일 때가 위험하다. "번호가 없는 서류"와 "번호를 아예 못 읽은 것"을 구분해야 한다.
+    if (result.redactions === 0) {
+      if (assignedType && DocumentsService.RRN_EXPECTED_DOC_TYPES.includes(assignedType)) {
+        throw new BadRequestException(
+          '이 서류유형에는 주민등록번호가 적혀 있는 것이 정상인데, 가릴 위치를 찾지 못했습니다. ' +
+            '가리지 않은 원본을 외부 AI로 보내지 않기 위해 분석을 중단했습니다. ' +
+            '더 선명한 스캔본을 올리거나, 주민번호를 가린 사본을 올려 주세요.',
+        );
+      }
+
+      // 주민번호가 없는 서류(사업자등록증·근로계약서 등)로 본다. 그래도 원본 PDF가 아니라
+      // 렌더링한 이미지를 보낸다 — 전송 경로를 하나로 유지한다.
+      this.logger.log(
+        `[스캔 비식별] 주민번호 형태 없음 — ${path.basename(pdfPath)} (type=${assignedType ?? '미지정'}, OCR ${result.ocrChars}자)`,
+      );
+    }
+
+    return this.geminiService.extractFromImages(result.pages, prompt, assignedType, annotationHint);
+  }
 
   /** 기업 적격(4단계) 검증 대상 서류유형 — 분석 완료 시 기업 신청 건 검증을 자동 실행한다. */
   private static readonly COMPANY_DOC_TYPES: DocumentTypeCode[] = [
@@ -240,7 +344,9 @@ export class DocumentsService {
           annotationHint,
         );
       } else {
-        rawExtracted = await this.geminiService.extractFromPdf(
+        // 스캔 PDF 경로 — 글자가 이미지라서 텍스트 마스킹이 통하지 않는다.
+        // 주민번호 뒤 6자리를 덮은 페이지 이미지를 만들어 그것만 보낸다.
+        rawExtracted = await this.analyzeScanned(
           pdfPath,
           dto.prompt,
           document.documentType as DocumentTypeCode | null,

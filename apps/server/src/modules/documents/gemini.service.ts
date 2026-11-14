@@ -9,6 +9,19 @@ import { maskResidentNumbers } from '../../common/masking.util';
 const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /**
+ * 가린 이미지를 보낼 때 덧붙이는 설명. 두 가지를 위해 필요하다.
+ * ① 검은 막대를 '서류 훼손·누락'으로 보고 missingItems 에 적는 것을 막는다.
+ * ② 추출값 형태를 텍스트 경로(`maskResidentNumbers`)와 같게 맞춘다 — 그래야 스캔 서류와
+ *    텍스트 서류를 섞어 대조하는 R-201(주민번호 3자 대조)이 성립한다.
+ */
+const REDACTION_NOTICE =
+  '이 이미지는 개인정보 보호를 위해 주민등록번호 뒤 6자리를 검은 막대로 가린 사본이다. ' +
+  '가려진 숫자를 절대 추측하지 마라. ' +
+  'residentNumber 값은 보이는 부분 그대로 쓰고 가려진 6자리는 별표로 채워 "######-G******" 형태로 적어라(예: 620315-1******). ' +
+  '성별 자리까지 가려져 보이지 않으면 "######-*******" 로 적어라. ' +
+  '검은 막대는 가림 처리이므로 서류의 누락·훼손이 아니다 — missingItems 에 적지 마라.';
+
+/**
  * 검증엔진(R-101~104)이 참조하는 표준 추출 키. 서류유형별로 이 키에 담도록 프롬프트로 지시해
  * extractedData 키와 규칙 원장의 필드 참조를 일치시킨다.
  */
@@ -372,6 +385,66 @@ export class GeminiService {
       extractedData: (item.extractedData && typeof item.extractedData === 'object' ? item.extractedData : {}) as Record<string, unknown>,
       missingItems: Array.isArray(item.missingItems) ? item.missingItems.map(String) : [],
     }));
+  }
+
+  /**
+   * 주민등록번호 뒤 6자리를 검은 막대로 덮은 **페이지 이미지**로 추출한다.
+   * 스캔 PDF는 글자가 이미지라서 텍스트 마스킹이 통하지 않으므로, 원본 PDF 대신
+   * `ScanRedactionService` 가 가린 이미지를 보낸다 (원본 바이트는 전송하지 않는다).
+   *
+   * 가려진 자리를 AI가 추측하지 않도록 프롬프트로 명시하고, 텍스트 경로와 같은
+   * `######-G******` 형태로 적게 해 서류 간 대조(R-201)가 성립하게 한다.
+   */
+  async extractFromImages(
+    images: Buffer[],
+    prompt?: string,
+    assignedType?: DocumentTypeCode | null,
+    annotationHint?: string,
+  ): Promise<Record<string, unknown>> {
+    if (!images.length) {
+      throw new BadRequestException('전송할 페이지 이미지가 없습니다.');
+    }
+    const client = this.getClient();
+    const model = this.configService.get<string>('GEMINI_MODEL') ?? DEFAULT_MODEL;
+
+    const base = prompt?.trim() || this.buildDefaultPrompt(assignedType);
+    const withHint = annotationHint ? base + String.fromCharCode(10, 10) + annotationHint : base;
+    const promptText = maskResidentNumbers(withHint) + ' ' + REDACTION_NOTICE;
+
+    const response = await client.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            ...images.map((img) => ({
+              inlineData: { mimeType: 'image/png', data: img.toString('base64') },
+            })),
+            { text: promptText },
+          ],
+        },
+      ],
+      config: { responseMimeType: 'application/json' },
+    });
+
+    const text = response.text;
+    if (!text) {
+      throw new BadRequestException('Gemini 응답에서 텍스트를 받지 못했습니다.');
+    }
+    let first: Record<string, unknown>;
+    try {
+      first = flattenExtraction(JSON.parse(text) as Record<string, unknown>);
+    } catch {
+      this.logger.error(`Gemini 응답 JSON 파싱 실패: ${text}`);
+      throw new BadRequestException('Gemini 응답을 JSON으로 해석하지 못했습니다.');
+    }
+
+    const resolved = this.needsSecondPass(first, assignedType, prompt);
+    if (resolved) {
+      this.logger.log(`[2단계 추출] 1차 분류=${resolved} → 해당 유형 표준 항목으로 재추출 (가린 이미지)`);
+      return this.reExtract(() => this.extractFromImages(images, undefined, resolved, annotationHint), first, resolved);
+    }
+    return first;
   }
 
   /** @param assignedType 업로드 시 지정된 문서종류(있으면 그 서류로 스코프). */

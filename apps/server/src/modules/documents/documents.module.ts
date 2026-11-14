@@ -9,6 +9,7 @@ import { Business } from '../businesses/business.entity';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
 import { GeminiService } from './gemini.service';
+import { ScanRedactionService } from './scan-redaction.service';
 import { FileConversionService } from './file-conversion.service';
 import { HwpToPdfConverter } from './converters/hwp-to-pdf.converter';
 import { ImageToPdfConverter } from './converters/image-to-pdf.converter';
@@ -29,7 +30,7 @@ import { CompaniesModule } from '../companies/companies.module';
     ValidationModule,
   ],
   controllers: [DocumentsController],
-  providers: [DocumentsService, GeminiService, FileConversionService, FileRouterService, HwpToPdfConverter, ImageToPdfConverter, DocxToPdfConverter, PdfToMarkdownConverter],
+  providers: [DocumentsService, GeminiService, ScanRedactionService, FileConversionService, FileRouterService, HwpToPdfConverter, ImageToPdfConverter, DocxToPdfConverter, PdfToMarkdownConverter],
   exports: [DocumentsService, FileConversionService],
 })
 export class DocumentsModule {}
